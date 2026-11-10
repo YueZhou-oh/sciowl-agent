@@ -1,0 +1,14 @@
+{
+  "my_mace": {
+    "backend": "mace",
+    "elements": ["Li", "Fe", "P", "O"],
+    "model_path": "/ABSOLUTE/PATH/TO/TRUSTED/model.model",
+    "sha256": "REPLACE_WITH_ACTUAL_SHA256",
+    "device": "cpu",
+    "demo_only": true,
+    "domain": "UNVALIDATED example: replace element coverage and domain with actual model documentation and validation",
+    "max_atoms": 256,
+    "revision": "REPLACE_WITH_PINNED_REVISION"
+  }
+}
+

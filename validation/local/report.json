@@ -1,0 +1,229 @@
+{
+  "status": "passed",
+  "policy": "Scripted baseline, NOT SciOWL",
+  "hardware": "CPU",
+  "calculator": "ASE EMT classical demonstration, NOT an MLIP",
+  "not_validated": [
+    "Ascend hardware",
+    "SciOWL checkpoint",
+    "MACE weights",
+    "Quantum ESPRESSO executable",
+    "Slurm cluster",
+    "MindSpeed training",
+    "physical diffusion convergence"
+  ],
+  "python": "3.12.14",
+  "versions": {
+    "ase": "3.29.0",
+    "numpy": "2.3.5",
+    "scipy": "1.17.0",
+    "pydantic": "2.14.1",
+    "httpx": "0.28.1",
+    "langgraph": "1.2.19",
+    "pytest": "9.2.0"
+  },
+  "numerical": {
+    "relaxation": {
+      "cell_policy": "fixed",
+      "converged": true,
+      "demo_only": true,
+      "energy_eV": -0.02670612425041341,
+      "input_inspection": {
+        "elements": [
+          "Cu"
+        ],
+        "formula": "Cu4",
+        "min_distance_A": 2.48965861113527,
+        "n_atoms": 4,
+        "pbc": [
+          true,
+          true,
+          true
+        ],
+        "volume_A3": 46.656
+      },
+      "input_structure_id": "a_8712ee2aa6a076b123c5f2f6d879fb54942de8dac37629be990cdb07d28710f6",
+      "max_force_eV_per_A": 0.027878026598934263,
+      "n_atoms": 4,
+      "operation": "submit_relaxation",
+      "output_structure_id": "a_8f2a84eb457706487bd6726c806f41f3fb2ac598a736344a01658f0f61e0d4f7",
+      "potential_id": "emt_demo",
+      "provenance_id": "a_9243cf38db50da4e6f7b3ab57a55479ac8f48afdf760bc4e0126dd86974ee401",
+      "requested_fmax_eV_per_A": 0.03,
+      "scientific_scope": "ASE EMT classical potential demonstration; not validated for research predictions",
+      "steps": 20
+    },
+    "submit_eos": {
+      "bulk_modulus_GPa": 134.3871387936998,
+      "demo_only": true,
+      "energies_eV": [
+        0.029372282753069356,
+        -0.00736501050646865,
+        -0.025459719060165753,
+        -0.02675507474316241,
+        -0.012926612221034972,
+        0.01451289267068745,
+        0.05420547395218023
+      ],
+      "equilibrium_energy_eV": -0.02814071996435956,
+      "equilibrium_volume_A3": 46.26149174255159,
+      "fit_rmse_eV": 3.951465463089624e-06,
+      "input_inspection": {
+        "elements": [
+          "Cu"
+        ],
+        "formula": "Cu4",
+        "min_distance_A": 2.545584412271571,
+        "n_atoms": 4,
+        "pbc": [
+          true,
+          true,
+          true
+        ],
+        "volume_A3": 46.656
+      },
+      "input_structure_id": "a_14b20eeeeab697712ff090109057c6d23f011b2520a9ef1539d9416920a272c9",
+      "n_atoms": 4,
+      "operation": "submit_eos",
+      "potential_id": "emt_demo",
+      "protocol": "fixed fractional coordinates; no per-volume relaxation",
+      "provenance_id": "a_db78c0d82a05a1a18df3cb5b5cf378d9676e401383a116f919a3098b1f3ff6ca",
+      "scientific_scope": "ASE EMT classical potential demonstration; not validated for research predictions",
+      "validated": true,
+      "volumes_A3": [
+        43.85664,
+        44.78975999999997,
+        45.722879999999996,
+        46.656,
+        47.58912000000002,
+        48.52224000000001,
+        49.45536000000001
+      ]
+    },
+    "submit_md": {
+      "demo_only": true,
+      "duration_fs": 20.0,
+      "energy_range_eV_per_atom": 4.413161866631196e-08,
+      "ensemble": "NVE",
+      "frames": 21,
+      "input_inspection": {
+        "elements": [
+          "Cu"
+        ],
+        "formula": "Cu4",
+        "min_distance_A": 2.545584412271571,
+        "n_atoms": 4,
+        "pbc": [
+          true,
+          true,
+          true
+        ],
+        "volume_A3": 46.656
+      },
+      "input_structure_id": "a_14b20eeeeab697712ff090109057c6d23f011b2520a9ef1539d9416920a272c9",
+      "n_atoms": 4,
+      "operation": "submit_md",
+      "output_structure_id": "a_fa7b3df0df25cb33a42cdeaa61176de3d6469d49d2c9e2fb3398913cb808c5b0",
+      "potential_id": "emt_demo",
+      "provenance_id": "a_e6bc2b78de84b1e54c2d5e126423ed815cca41c9e62e213db28740bda2487b68",
+      "scientific_scope": "ASE EMT classical potential demonstration; not validated for research predictions",
+      "seed": 42,
+      "temperature_mean_K": 37.97669310103824,
+      "trajectory_id": "a_8ec20fdcd5c030516bd47403131cadba00247c37205ba3b3aa77238a3ec31475",
+      "validation": "short stability run; not a converged transport prediction"
+    },
+    "msd": {
+      "ok": true,
+      "analysis_id": "a_355437091b9c106848ad0973313b8666027a52fb57beb488fed1b625edccda41",
+      "trajectory_id": "a_8ec20fdcd5c030516bd47403131cadba00247c37205ba3b3aa77238a3ec31475",
+      "element": "Cu",
+      "lag_time_fs": [
+        1.0,
+        2.0,
+        3.0,
+        4.0,
+        5.0,
+        6.0,
+        7.0,
+        8.0,
+        9.0,
+        10.0
+      ],
+      "msd_A2": [
+        1.121671712786816e-06,
+        4.499501412132842e-06,
+        1.014872923787131e-05,
+        1.807920585617416e-05,
+        2.829530680718127e-05,
+        4.0795865374687184e-05,
+        5.5574124479594784e-05,
+        7.261770800470552e-05,
+        9.190861186048411e-05,
+        0.00011342321500043446
+      ],
+      "msd_axes_A2": [
+        [
+          2.398288470331588e-07,
+          6.156141212622365e-07,
+          2.6622874449142074e-07
+        ],
+        [
+          9.620571068976988e-07,
+          2.4692193934792885e-06,
+          1.068224911755855e-06
+        ],
+        [
+          2.1699248509623894e-06,
+          5.5690639319119575e-06,
+          2.409740454996962e-06
+        ],
+        [
+          3.86549080675176e-06,
+          9.920834779605538e-06,
+          4.292880269816861e-06
+        ],
+        [
+          6.049613240319044e-06,
+          1.5527622745557323e-05,
+          6.7180708213049e-06
+        ],
+        [
+          8.721935020880568e-06,
+          2.2389894294648526e-05,
+          9.684036059158091e-06
+        ],
+        [
+          1.1880872990277811e-05,
+          3.050547062264659e-05,
+          1.3187780866670388e-05
+        ],
+        [
+          1.5523611737185105e-05,
+          3.9869514024800115e-05,
+          1.7224582242720305e-05
+        ],
+        [
+          1.964610185224446e-05,
+          5.0474521641205984e-05,
+          2.178798836703367e-05
+        ],
+        [
+          2.4243062715689157e-05,
+          6.231032663632474e-05,
+          2.686982564842057e-05
+        ]
+      ],
+      "candidate_D_axes_cm2_per_s": [
+        1.9403742125791904e-07,
+        4.990495785095588e-07,
+        2.1485893339444117e-07
+      ],
+      "candidate_D_iso_cm2_per_s": 3.026486443873064e-07,
+      "remove_com_drift": false,
+      "validated_diffusion": false,
+      "warnings": [
+        "No diffusive-regime certification or replica uncertainty; fits are provisional and can be negative."
+      ]
+    }
+  }
+}

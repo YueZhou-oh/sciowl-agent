@@ -1,0 +1,14 @@
+{
+  "records": 6,
+  "reviewed": false,
+  "observation_source": "real_execution",
+  "policy": "scripted expert; not SciOWL",
+  "calculator": "ASE EMT classical demo",
+  "splits": {
+    "train": 0,
+    "validation": 6,
+    "test": 0
+  },
+  "warning": "Single related Cu family: grouped split may be empty. Add independent source families for useful validation/test sets.",
+  "sha256": "6775500318f35ce45251916b00e284da5df1ec615aa5ed350c62665d74b737ea"
+}

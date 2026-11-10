@@ -1,0 +1,128 @@
+{
+  "policy": "scripted expert baseline",
+  "backend": "CPU ASE EMT classical demo",
+  "cases": [
+    {
+      "case": 0,
+      "status": "completed",
+      "validated_success": true,
+      "tool_calls": 4,
+      "invalid_requests": 0,
+      "model_steps": 5,
+      "wall_s": 0.1711720719999903,
+      "calculation": {
+        "cell_policy": "fixed",
+        "converged": true,
+        "demo_only": true,
+        "energy_eV": -0.028090546103047842,
+        "input_inspection": {
+          "elements": [
+            "Cu"
+          ],
+          "formula": "Cu4",
+          "min_distance_A": 2.510388416161929,
+          "n_atoms": 4,
+          "pbc": [
+            true,
+            true,
+            true
+          ],
+          "volume_A3": 46.268278999999986
+        },
+        "input_structure_id": "a_e9f165e408eb786add9413186bea40324f808053bec45f02693b7b3f5c9e9b0c",
+        "max_force_eV_per_A": 0.02233270851550878,
+        "n_atoms": 4,
+        "operation": "submit_relaxation",
+        "output_structure_id": "a_f8357cc3f9424d898f8ce0887a1b84f514337d8a2ad39acac5986470f0838ba8",
+        "potential_id": "emt_demo",
+        "provenance_id": "a_14423bd4bc7ce270f84319b84973fd365800ef596ba76bed1d5156927d9afdd9",
+        "requested_fmax_eV_per_A": 0.03,
+        "scientific_scope": "ASE EMT classical potential demonstration; not validated for research predictions",
+        "steps": 11
+      },
+      "report_id": "a_df4f08d03217a4a15e592524ae2dd93110bd439a5d3fac45333930d1e303464c"
+    },
+    {
+      "case": 1,
+      "status": "completed",
+      "validated_success": true,
+      "tool_calls": 4,
+      "invalid_requests": 0,
+      "model_steps": 5,
+      "wall_s": 0.15757618400039064,
+      "calculation": {
+        "cell_policy": "fixed",
+        "converged": true,
+        "demo_only": true,
+        "energy_eV": -0.02669762738120518,
+        "input_inspection": {
+          "elements": [
+            "Cu"
+          ],
+          "formula": "Cu4",
+          "min_distance_A": 2.510478042126638,
+          "n_atoms": 4,
+          "pbc": [
+            true,
+            true,
+            true
+          ],
+          "volume_A3": 46.656
+        },
+        "input_structure_id": "a_a8d5ee49cfc0b3ec536920e8eac94593ec5ccb5911a27f20cc4351fb6a16121e",
+        "max_force_eV_per_A": 0.02671385683750474,
+        "n_atoms": 4,
+        "operation": "submit_relaxation",
+        "output_structure_id": "a_583f14b1ce97d1a5eb671e6873c0aad17b109e48b301f2d73b847f80af660aec",
+        "potential_id": "emt_demo",
+        "provenance_id": "a_20124bbbf90ef06c5a28580c91063d7397a26ca6e1e0e8b3f48fab42bb511d78",
+        "requested_fmax_eV_per_A": 0.03,
+        "scientific_scope": "ASE EMT classical potential demonstration; not validated for research predictions",
+        "steps": 12
+      },
+      "report_id": "a_de2e50f61858bcfc907380aa395fc5c039e216fbcd5dc2aef91a84a605d3934b"
+    },
+    {
+      "case": 2,
+      "status": "completed",
+      "validated_success": true,
+      "tool_calls": 4,
+      "invalid_requests": 0,
+      "model_steps": 5,
+      "wall_s": 0.12779696099960347,
+      "calculation": {
+        "cell_policy": "fixed",
+        "converged": true,
+        "demo_only": true,
+        "energy_eV": -0.0226720169632717,
+        "input_inspection": {
+          "elements": [
+            "Cu"
+          ],
+          "formula": "Cu4",
+          "min_distance_A": 2.5105875806272917,
+          "n_atoms": 4,
+          "pbc": [
+            true,
+            true,
+            true
+          ],
+          "volume_A3": 47.04588100000001
+        },
+        "input_structure_id": "a_f72641d8a28ba1c6b50acc0715ae083139ff9c0cca4aeb5a31e3f24c6a93ce3e",
+        "max_force_eV_per_A": 0.028696175143533842,
+        "n_atoms": 4,
+        "operation": "submit_relaxation",
+        "output_structure_id": "a_e8c12f60b83604568790101d88702ec21cdcca47734a0ebf2d8cce6d894d8771",
+        "potential_id": "emt_demo",
+        "provenance_id": "a_0700444b5ccb591878e9c6cee156534a6ea37889e774096fb133624cb99d0438",
+        "requested_fmax_eV_per_A": 0.03,
+        "scientific_scope": "ASE EMT classical potential demonstration; not validated for research predictions",
+        "steps": 13
+      },
+      "report_id": "a_c44b3146261f5013e2b9148a181d2e4f566d6892f45595720bcbaae4656b1873"
+    }
+  ],
+  "success_rate": 1.0,
+  "scope": "Small related Cu relaxation suite; not independent evidence of broad scientific performance"
+}

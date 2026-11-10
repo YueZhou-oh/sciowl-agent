@@ -1,0 +1,8 @@
+.................................                                        [100%]
+=============================== warnings summary ===============================
+tests/test_core.py::test_md_real_and_provisional_msd
+  /workspace/scratch/8e339c979900/sciowl-agent/sciowl_agent/science.py:177: DeprecationWarning: Use thermalize_momenta
+    MaxwellBoltzmannDistribution(atoms,temperature_K=a["temperature_K"],rng=rng)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+33 passed, 1 warning in 4.99s

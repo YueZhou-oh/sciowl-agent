@@ -1,0 +1,21 @@
+{
+  "qe_cu": {
+    "backend": "espresso",
+    "elements": ["Cu"],
+    "command": "pw.x",
+    "pseudo_dir": "/ABSOLUTE/PATH/TO/PSEUDOPOTENTIALS",
+    "pseudopotentials": {"Cu": "Cu.UPF"},
+    "pseudopotential_sha256": {"Cu.UPF": "REPLACE_WITH_ACTUAL_SHA256"},
+    "input_data": {
+      "control": {"calculation": "scf", "tprnfor": true, "tstress": true},
+      "system": {"ecutwfc": 60, "occupations": "smearing", "smearing": "mv", "degauss": 0.02},
+      "electrons": {"conv_thr": 1e-8}
+    },
+    "kpts": [4,4,4],
+    "demo_only": true,
+    "domain": "Unconverged example settings: establish cutoff/k-grid/pseudopotential validity before scientific use",
+    "max_atoms": 256,
+    "revision": "REPLACE_WITH_QE_VERSION"
+  }
+}
+

@@ -1,0 +1,124 @@
+{
+  "passed": true,
+  "records": [
+    {
+      "record": "seed-0-evaluate_energy_forces",
+      "decisions": 5,
+      "supervised_tokens": [
+        88,
+        98,
+        99,
+        58,
+        99
+      ],
+      "total_tokens": [
+        1952,
+        2125,
+        2266,
+        2432,
+        3302
+      ]
+    },
+    {
+      "record": "seed-0-submit_relaxation",
+      "decisions": 5,
+      "supervised_tokens": [
+        88,
+        98,
+        99,
+        54,
+        100
+      ],
+      "total_tokens": [
+        1952,
+        2125,
+        2266,
+        2428,
+        3034
+      ]
+    },
+    {
+      "record": "seed-0-submit_md",
+      "decisions": 6,
+      "supervised_tokens": [
+        88,
+        98,
+        136,
+        60,
+        92,
+        164
+      ],
+      "total_tokens": [
+        1950,
+        2123,
+        2301,
+        2470,
+        3129,
+        4526
+      ]
+    },
+    {
+      "record": "seed-1-evaluate_energy_forces",
+      "decisions": 5,
+      "supervised_tokens": [
+        89,
+        99,
+        100,
+        58,
+        96
+      ],
+      "total_tokens": [
+        1954,
+        2128,
+        2270,
+        2437,
+        3298
+      ]
+    },
+    {
+      "record": "seed-1-submit_relaxation",
+      "decisions": 5,
+      "supervised_tokens": [
+        89,
+        99,
+        100,
+        55,
+        96
+      ],
+      "total_tokens": [
+        1954,
+        2128,
+        2270,
+        2433,
+        3033
+      ]
+    },
+    {
+      "record": "seed-1-submit_md",
+      "decisions": 6,
+      "supervised_tokens": [
+        89,
+        99,
+        137,
+        59,
+        91,
+        163
+      ],
+      "total_tokens": [
+        1952,
+        2126,
+        2305,
+        2474,
+        3138,
+        4526
+      ]
+    }
+  ],
+  "tokenizer_sha256": {
+    "tokenizer_config.json": "d5d09f07b48c3086c508b30d1c9114bd1189145b74e982a265350c923acd8101",
+    "vocab.json": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910",
+    "tokenizer.json": "aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4"
+  },
+  "template_sha256": "a55ee1b1660128b7098723e0abcd92caa0788061051c62d51cbe87d9cf1974d8",
+  "notice": "Template/mask audit only; does not certify scientific correctness or review status"
+}

@@ -1,0 +1,41 @@
+{
+  "commentary_verified": false,
+  "evidence": [
+    {
+      "data": {
+        "cell_policy": "fixed",
+        "converged": true,
+        "demo_only": true,
+        "energy_eV": -0.02670612425041341,
+        "input_inspection": {
+          "elements": [
+            "Cu"
+          ],
+          "formula": "Cu4",
+          "min_distance_A": 2.48965861113527,
+          "n_atoms": 4,
+          "pbc": [
+            true,
+            true,
+            true
+          ],
+          "volume_A3": 46.656
+        },
+        "input_structure_id": "a_8712ee2aa6a076b123c5f2f6d879fb54942de8dac37629be990cdb07d28710f6",
+        "max_force_eV_per_A": 0.027878026598934263,
+        "n_atoms": 4,
+        "operation": "submit_relaxation",
+        "output_structure_id": "a_8f2a84eb457706487bd6726c806f41f3fb2ac598a736344a01658f0f61e0d4f7",
+        "potential_id": "emt_demo",
+        "provenance_id": "a_9243cf38db50da4e6f7b3ab57a55479ac8f48afdf760bc4e0126dd86974ee401",
+        "requested_fmax_eV_per_A": 0.03,
+        "scientific_scope": "ASE EMT classical potential demonstration; not validated for research predictions",
+        "steps": 20
+      },
+      "evidence_id": "a_1275d252cecb706e17d0f26ab9785d2b52a2b0fc463a830a71c34795bbcd9786"
+    }
+  ],
+  "model_commentary": "Classical EMT demonstration calculation completed. Inspect the evidence table for actual convergence.",
+  "notice": "Numerical evidence is tool-generated. Qualitative model commentary requires scientific review.",
+  "session_id": "demo-relax"
+}
