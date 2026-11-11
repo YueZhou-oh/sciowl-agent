@@ -41,7 +41,7 @@ On the controller host:
 ```bash
 export SCIOWL_BASE_URL=http://YOUR_NPU_SERVER:8000/v1
 export SCIOWL_API_KEY=YOUR_INTERNAL_SERVICE_KEY
-python3 scripts/probe_endpoint.py --base-url "$SCIOWL_BASE_URL" --output endpoint_probe.json
+python3 -m scripts.probe_endpoint --base-url "$SCIOWL_BASE_URL" --output endpoint_probe.json
 ```
 
 No tool is executed by this probe. It tests a few basic decisions and arguments. If native function calling is not yet learned or parser-compatible, launch serving with `NATIVE_TOOL_CALLING=0` and use `--protocol json` on probe/agent commands. This adapter requests explicit JSON actions using ordinary chat roles.
@@ -139,7 +139,7 @@ The administrator registry is snapshotted into each job, so the worker uses the 
 ## 7. Generate and export SFT data
 
 ```bash
-python3 scripts/generate_dataset.py --output generated_dataset --structures 5
+python3 -m scripts.generate_dataset --output generated_dataset --structures 5
 python3 -m sciowl_agent.cli --workspace runs/demo export \
   --session demo-relax --output demo_canonical.jsonl
 ```
@@ -188,9 +188,9 @@ See `validation/local/report.json` for actual measurements and `docs/STATUS.md` 
 Evaluate the same small local suite with either policy:
 
 ```bash
-python3 scripts/evaluate_agent.py --output validation/scripted_evaluation
-python3 scripts/evaluate_agent.py --base-url "$SCIOWL_BASE_URL" --model SciOWL-Instruct --output validation/sciowl_evaluation
-python3 scripts/audit_tokenizer.py --tokenizer /path/to/local/Qwen3-tokenizer --input runs/demo/trajectory.jsonl --output validation/tokenizer_audit.json
+python3 -m scripts.evaluate_agent --output validation/scripted_evaluation
+python3 -m scripts.evaluate_agent --base-url "$SCIOWL_BASE_URL" --model SciOWL-Instruct --output validation/sciowl_evaluation
+python3 -m scripts.audit_tokenizer --tokenizer /path/to/local/Qwen3-tokenizer --input runs/demo/trajectory.jsonl --output validation/tokenizer_audit.json
 ```
 
 The related Cu cases are smoke tests, not an independent scientific benchmark. To enable the real-tokenizer pytest cases, set `SCIOWL_TEST_TOKENIZER=/path/to/local/Qwen3-tokenizer` when running validation. Without that variable those two tests are skipped explicitly.
