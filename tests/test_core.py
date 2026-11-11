@@ -168,6 +168,7 @@ def test_invented_evidence_rejected(setup):
             return {"role":"assistant","content":json.dumps({"summary":"Done","evidence_ids":["fake"]})}
     state=Harness(s,g,Bad(),max_steps=2).run("bad","Relax")
     assert state["status"]!="completed"
+    assert state["steps"] == 1
     assert state["report_id"] is None
 
 
@@ -180,11 +181,14 @@ def test_budget_enforced(setup):
     assert state["status"]=="budget_exhausted" and state["steps"]==3
 
 
-def test_http_adapter_native_and_truncation():
+def test_http_adapter_native_and_truncation(monkeypatch):
     import httpx
+    monkeypatch.setenv("SCIOWL_ENABLE_THINKING", "1")
     def handle(req):
         body=json.loads(req.content)
         assert body["tools"]==[] and body["model"]=="SciOWL"
+        assert body["chat_template_kwargs"] == {"enable_thinking": True}
+        assert "thinking" not in body
         return httpx.Response(200,json={"choices":[{"finish_reason":"stop","message":{"role":"assistant","content":"ok"}}]})
     model=EndpointModel("http://test/v1","SciOWL",client=httpx.Client(transport=httpx.MockTransport(handle)))
     assert model.next([],[])["content"]=="ok"
@@ -197,6 +201,48 @@ def test_http_json_protocol():
     response={"choices":[{"finish_reason":"stop","message":{"content":'{"tool":"list_potentials","arguments":{}}'}}]}
     model=EndpointModel("http://test/v1","SciOWL",protocol="json",client=httpx.Client(transport=httpx.MockTransport(lambda r:httpx.Response(200,json=response))))
     assert model.next([],[])["tool_calls"][0]["function"]["name"]=="list_potentials"
+
+
+@pytest.mark.parametrize("protocol", ["native", "json"])
+def test_deepseek_tool_history(protocol, monkeypatch):
+    import httpx
+
+    monkeypatch.setenv("SCIOWL_ENABLE_THINKING", "1")
+    history = [
+        {"role": "user", "content": "Inspect the structure."},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [{
+                "id": "turn_0_call_0",
+                "type": "function",
+                "function": {"name": "inspect_structure", "arguments": '{"structure_id":"a_test"}'},
+            }],
+        },
+        {"role": "tool", "tool_call_id": "turn_0_call_0", "content": '{"ok":true}'},
+    ]
+
+    def handle(request):
+        body = json.loads(request.content)
+        assert body["thinking"] == {"type": "disabled"}
+        assert "chat_template_kwargs" not in body
+        assert request.url.path == "/chat/completions"
+        if protocol == "native":
+            assert body["messages"] == history
+            assert body["tool_choice"] == "auto"
+        else:
+            assert json.loads(body["messages"][-2]["content"]) == {
+                "tool": "inspect_structure", "arguments": {"structure_id": "a_test"},
+            }
+            assert body["messages"][-1] == {"role": "user", "content": 'TOOL OBSERVATION: {"ok":true}'}
+        return httpx.Response(200, json={"choices": [{
+            "finish_reason": "stop",
+            "message": {"role": "assistant", "content": '{"summary":"Inspected.","evidence_ids":[]}'},
+        }]})
+
+    with httpx.Client(transport=httpx.MockTransport(handle)) as client:
+        model = EndpointModel("https://api.deepseek.com", "deepseek-flash", protocol, client=client)
+        assert json.loads(model.next(history, [])["content"])["summary"] == "Inspected."
 
 
 def test_group_split():
