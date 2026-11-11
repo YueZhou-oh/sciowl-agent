@@ -67,11 +67,11 @@ class Harness:
                 seen.add(c.get("id"))
                 # IDs need only correlate within a turn; normalize to avoid collisions on resume.
                 c["id"]=f"turn_{s['steps']}_call_{i}"
-            s["messages"].append(msg)
             if calls:
                 s["pending"]=calls.copy();s["status"]="acting"
             else:
                 self.finalize(s,msg)
+            s["messages"].append(msg)
         except (ValueError,KeyError,TypeError) as exc:
             s["messages"].append({"role":"user","content":"Protocol validation failed: "+str(exc)[:500]+". Return a valid action or final JSON."})
             s["status"]="thinking"

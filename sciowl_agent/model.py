@@ -12,7 +12,8 @@ Never invent numerical results or infer convergence from a queued/completed stat
 Check structure and potential before simulation. Use explicit units and documented defaults.
 If information is missing, ask for clarification. Do not call unrelated tools.
 For a final answer return exactly a JSON object with keys: summary (string), evidence_ids (array of result/analysis IDs).
-The summary is qualitative commentary; numerical facts will be rendered from verified artifacts by the harness.
+Keep the summary qualitative and omit all digits, including those in artifact IDs and chemical formulas.
+Put result and analysis IDs only in evidence_ids. The harness renders numerical facts from those artifacts.
 Do not claim reliable diffusion from a short trajectory. EMT is a classical demonstration potential, not an MLIP.
 '''
 

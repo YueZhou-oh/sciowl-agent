@@ -170,6 +170,7 @@ def test_invented_evidence_rejected(setup):
     assert state["status"]!="completed"
     assert state["steps"] == 1
     assert state["report_id"] is None
+    assert all(message["role"] != "assistant" for message in state["messages"])
 
 
 def test_budget_enforced(setup):
