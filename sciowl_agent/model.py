@@ -1,6 +1,8 @@
 """OpenAI-compatible endpoint adapter; no SDK/CUDA dependency in the controller."""
 import json
 import os
+from urllib.parse import urlsplit
+
 import httpx
 
 
@@ -10,7 +12,8 @@ Never invent numerical results or infer convergence from a queued/completed stat
 Check structure and potential before simulation. Use explicit units and documented defaults.
 If information is missing, ask for clarification. Do not call unrelated tools.
 For a final answer return exactly a JSON object with keys: summary (string), evidence_ids (array of result/analysis IDs).
-The summary is qualitative commentary; numerical facts will be rendered from verified artifacts by the harness.
+Keep the summary qualitative and omit all digits, including those in artifact IDs and chemical formulas.
+Put result and analysis IDs only in evidence_ids. The harness renders numerical facts from those artifacts.
 Do not claim reliable diffusion from a short trajectory. EMT is a classical demonstration potential, not an MLIP.
 '''
 
@@ -29,17 +32,39 @@ class EndpointModel:
     def next(self,messages,tools):
         outgoing=list(messages)
         payload={"model":self.model,"temperature":0,"max_tokens":self.max_tokens}
-        payload["chat_template_kwargs"]={"enable_thinking":os.environ.get("SCIOWL_ENABLE_THINKING")=="1"}
+        if urlsplit(self.base_url).hostname == "api.deepseek.com":
+            # Native DeepSeek thinking requires replaying reasoning_content across tool turns.
+            payload["thinking"] = {"type": "disabled"}
+        else:
+            payload["chat_template_kwargs"]={"enable_thinking":os.environ.get("SCIOWL_ENABLE_THINKING")=="1"}
         if self.protocol=="native":
             payload.update(messages=outgoing,tools=tools,tool_choice="auto")
         else:
             instruction='Return ONLY JSON: {"tool": "tool_name", "arguments": {...}} or {"summary":"...","evidence_ids":[]}. Available tools: '+json.dumps(tools)
             # Non-native endpoint sees only ordinary roles, with explicit observations.
-            outgoing=[{"role":"system","content":SYSTEM+instruction}]+[
-                {"role":("user" if m["role"]=="tool" else m["role"]),
-                 "content":("TOOL OBSERVATION: "+m["content"] if m["role"]=="tool" else
-                            (m.get("content") or json.dumps({"tool_calls":m.get("tool_calls",[])})))}
-                for m in messages if m["role"]!="system"]
+            outgoing = [{"role": "system", "content": SYSTEM + instruction}]
+            for message in messages:
+                role = message["role"]
+                if role == "system":
+                    continue
+                content = message.get("content") or ""
+                if role == "tool":
+                    role = "user"
+                    content = "TOOL OBSERVATION: " + content
+                elif message.get("tool_calls"):
+                    actions = []
+                    for call in message["tool_calls"]:
+                        function = call["function"]
+                        arguments = function.get("arguments")
+                        try:
+                            if isinstance(arguments, str):
+                                arguments = json.loads(arguments)
+                        except json.JSONDecodeError:
+                            # Preserve a rejected native call when resuming in JSON mode.
+                            pass
+                        actions.append({"tool": function["name"], "arguments": arguments})
+                    content = json.dumps(actions[0] if len(actions) == 1 else actions)
+                outgoing.append({"role": role, "content": content})
             payload["messages"]=outgoing
         key=os.environ.get("SCIOWL_API_KEY","")
         response=self.client.post(self.base_url+"/chat/completions",json=payload,

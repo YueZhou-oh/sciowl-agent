@@ -48,6 +48,8 @@ No tool is executed by this probe. It tests a few basic decisions and arguments.
 
 The model client sends `chat_template_kwargs.enable_thinking=false` by default. Set `SCIOWL_ENABLE_THINKING=1` only after validating your thinking-mode serialization, reasoning parser, and output budget.
 
+For the hosted DeepSeek API, set `SCIOWL_BASE_URL=https://api.deepseek.com`, `SCIOWL_MODEL=deepseek-flash`, and provide your key through `SCIOWL_API_KEY`. Use `--protocol native` for the agent and probe, or select `--protocol json` on both. Requests to `api.deepseek.com` use DeepSeek's non-thinking mode in either protocol.
+
 ## 3. Import a structure and run the real agent
 
 ```bash
