@@ -98,6 +98,12 @@ python3 -m sciowl_agent.cli --workspace runs/live tool get_result '{"job_id":"JO
 
 `worker` processes one queued job; `worker --loop` processes continuously. Calls are normalized and idempotent within a session: identical calculation requests reuse the job. To request an independent replica change the MD seed. To explicitly retry a failed identical calculation after fixing infrastructure, use a new session; review the previous worker first.
 
+Add `--progress` to the worker command for live output on stderr. Each line includes the job ID, operation, and elapsed time. Relaxations report optimizer steps, energy, and maximum force. EOS scans report each volume and energy. MD reports equilibration progress and sampled production frames. Single points report energy and maximum force.
+
+```bash
+python3 -m sciowl_agent.cli --workspace runs/live worker --loop --progress
+```
+
 Implemented tools: inspection, potential listing/checking, single point, fixed-cell relaxation, fixed-fractional-coordinate EOS, fixed-cell NVE/NVT MD, job status/result/cancellation, and provisional species-resolved MSD analysis.
 
 MD separates Langevin equilibration and production. It saves unwrapped Cartesian coordinates without wrapping, energy, temperature, symbols, and masses. Analysis checks fixed cell and even sampling; it never marks a diffusion fit scientifically converged. No NPT, variable-cell relaxation, phonons, NEB, or uncertainty-calibrated diffusion is claimed.

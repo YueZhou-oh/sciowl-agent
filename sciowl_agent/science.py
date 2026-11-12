@@ -112,7 +112,7 @@ def finite_values(atoms):
     return energy, forces
 
 
-def execute(store, job, tick):
+def execute(store, job, tick, *, progress=None):
     spec = job["spec"]
     a = spec["arguments"]
     atoms = load_atoms(store, a["structure_id"])
@@ -130,9 +130,14 @@ def execute(store, job, tick):
     result = {"operation":kind, "input_structure_id":a["structure_id"], "potential_id":a["potential_id"],
               "demo_only":cfg.get("demo_only",True), "scientific_scope":cfg["domain"], "n_atoms":len(atoms)}
     if kind == "evaluate_energy_forces":
+        if progress is not None:
+            progress("evaluating energy and forces")
         e,f = finite_values(atoms)
         force_id = store.put_json({"forces_eV_per_A":f.tolist()}, "forces", {"job_id":job["id"]})
-        result.update(energy_eV=e, max_force_eV_per_A=float(np.linalg.norm(f,axis=1).max()), forces_id=force_id)
+        fm = float(np.linalg.norm(f, axis=1).max())
+        result.update(energy_eV=e, max_force_eV_per_A=fm, forces_id=force_id)
+        if progress is not None:
+            progress(f"energy={e:.8g} eV max_force={fm:.8g} eV/Å")
         try:
             stress=atoms.get_stress(voigt=True)
             if not np.isfinite(stress).all():raise ValueError("Nonfinite stress")
@@ -143,6 +148,20 @@ def execute(store, job, tick):
     elif kind == "submit_relaxation":
         opt = {"FIRE":FIRE,"BFGS":BFGS}[a["optimizer"]](atoms, logfile=str(work/"optimizer.log"), trajectory=str(work/"relax.traj"))
         opt.attach(tick, interval=1)
+        if progress is not None:
+            progress(f"optimizer={a['optimizer']} target_max_force={a['fmax_eV_per_A']:.8g} eV/Å")
+
+            def report_step():
+                detail = f"step={opt.nsteps}/{a['max_steps']}"
+                # Reuse the values ASE just calculated for its optimizer log.
+                energy = atoms.calc.results.get("energy")
+                forces = atoms.calc.results.get("forces")
+                if energy is not None and forces is not None:
+                    max_force = np.linalg.norm(forces, axis=1).max()
+                    detail += f" energy={energy:.8g} eV max_force={max_force:.8g} eV/Å"
+                progress(detail)
+
+            opt.attach(report_step, interval=1)
         opt.run(fmax=a["fmax_eV_per_A"], steps=a["max_steps"])
         e,f = finite_values(atoms)
         fm = float(np.linalg.norm(f,axis=1).max())
@@ -158,12 +177,18 @@ def execute(store, job, tick):
             raise ValueError("EOS factors must be unique and within [0.8,1.2]")
         base = atoms.cell.copy()
         volumes, energies = [], []
-        for factor in factors:
+        if progress is not None:
+            progress(f"scanning {len(factors)} volumes")
+        for index, factor in enumerate(factors, start=1):
             tick()
             atoms.set_cell(base*factor**(1/3),scale_atoms=True)
             inspect(atoms)
             e,_ = finite_values(atoms)
             volumes.append(float(atoms.get_volume())); energies.append(e)
+            if progress is not None:
+                progress(f"point={index}/{len(factors)} volume={volumes[-1]:.8g} Å³ energy={e:.8g} eV")
+        if progress is not None:
+            progress("fitting Birch–Murnaghan equation of state")
         eos = EquationOfState(volumes,energies,eos="birchmurnaghan")
         v0,e0,b = eos.fit()
         predictions = eos.func(np.array(volumes),*eos.eos_parameters)
@@ -181,6 +206,14 @@ def execute(store, job, tick):
             atoms.set_constraint(FixCom())
         equil = Langevin(atoms,a["timestep_fs"]*units.fs,temperature_K=a["temperature_K"],friction=0.01/units.fs,rng=rng,fixcm=False)
         equil.attach(tick,interval=1)
+        if progress is not None:
+            progress(f"equilibration steps={a['equilibration_steps']} target_temperature={a['temperature_K']:.8g} K")
+
+            def report_equilibration():
+                progress(f"equilibration step={equil.nsteps}/{a['equilibration_steps']} temperature={atoms.get_temperature():.8g} K")
+
+            if a["equilibration_steps"]:
+                equil.attach(report_equilibration, interval=a["sample_interval"])
         equil.run(a["equilibration_steps"])
         dyn = VelocityVerlet(atoms,a["timestep_fs"]*units.fs) if a["ensemble"]=="NVE" else Langevin(
             atoms,a["timestep_fs"]*units.fs,temperature_K=a["temperature_K"],friction=0.01/units.fs,rng=rng,fixcm=False)
@@ -194,8 +227,12 @@ def execute(store, job, tick):
             positions.append(atoms.positions.copy());cells.append(atoms.cell.array.copy())
             times.append(dyn.nsteps*a["timestep_fs"])
             energies.append(e+float(atoms.get_kinetic_energy()));temps.append(t)
+            if progress is not None:
+                progress(f"production step={dyn.nsteps}/{a['production_steps']} time={times[-1]:.8g} fs temperature={t:.8g} K total_energy={energies[-1]:.8g} eV")
         dyn.attach(tick,interval=1)
         dyn.attach(sample,interval=a["sample_interval"])
+        if progress is not None:
+            progress(f"production ensemble={a['ensemble']} steps={a['production_steps']}")
         dyn.run(a["production_steps"])
         if len(times)<3:
             raise ValueError("Need at least three sampled frames")

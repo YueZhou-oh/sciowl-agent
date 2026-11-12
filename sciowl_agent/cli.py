@@ -38,6 +38,7 @@ def main():
     imp=sub.add_parser("import");imp.add_argument("path")
     tool=sub.add_parser("tool");tool.add_argument("name");tool.add_argument("arguments",help="JSON object");tool.add_argument("--session",default="cli")
     worker=sub.add_parser("worker");worker.add_argument("--loop",action="store_true");worker.add_argument("--timeout",type=float,default=600)
+    worker.add_argument("--progress", action="store_true", help="Print job progress to stderr")
     rec=sub.add_parser("recover-stale");rec.add_argument("--seconds",type=float,default=3600)
     agent=sub.add_parser("agent");agent.add_argument("--session",required=True);agent.add_argument("--request")
     agent.add_argument("--base-url",default=os.environ.get("SCIOWL_BASE_URL","http://10.1.0.232:8005/v1"))
@@ -61,7 +62,7 @@ def main():
         out=Gateway(store,Registry(args.registry)).call(args.name,json.loads(args.arguments),args.session)
     elif args.cmd=="worker":
         while True:
-            worked=run_one(store,args.timeout)
+            worked=run_one(store,args.timeout,show_progress=args.progress)
             if not args.loop:break
             if not worked:time.sleep(0.5)
         out={"last_iteration_worked":worked}
