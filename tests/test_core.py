@@ -40,6 +40,22 @@ def test_relax_real(setup):
     assert r["demo_only"]
 
 
+def test_worker_progress_keeps_stdout_json(setup, monkeypatch, capsys):
+    from sciowl_agent.cli import main
+
+    store, gateway, structure_id = setup
+    queued = gateway.call("submit_relaxation", {"structure_id": structure_id})
+    job_id = queued["job_id"]
+    monkeypatch.setattr("sys.argv", ["sciowl-agent", "--workspace", str(store.root), "worker", "--progress"])
+    main()
+    output = capsys.readouterr()
+    assert json.loads(output.out) == {"last_iteration_worked": True}
+    assert f"[{job_id} submit_relaxation" in output.err
+    assert "step=0/" in output.err
+    assert "energy=" in output.err and "max_force=" in output.err
+    assert "completed result_id=" in output.err and "converged=True" in output.err
+
+
 def test_singlepoint_force_finite_difference(setup):
     s,g,aid=setup
     r=calculate(setup,"evaluate_energy_forces")
