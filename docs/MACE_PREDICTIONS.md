@@ -16,7 +16,7 @@ Use a compatible PyTorch CPU/CUDA installation. The planner may run on an NPU
 endpoint while the worker runs MACE on a CPU or CUDA GPU; upstream MACE NPU
 execution remains rejected by this project. No model download is performed.
 
-Create a registry from the existing template:
+Create a registry for the official MACE-OMAT-0 checkpoint from the template:
 
 ```bash
 python - <<'PY'
@@ -31,7 +31,6 @@ cfg.update(
     sha256=hashlib.sha256(model.read_bytes()).hexdigest(),
     device='cuda',                 # or 'cpu', 'cuda:0'
     default_dtype='float32',       # matches the supplied prediction demo
-    elements=['Li', 'Fe', 'P', 'O'],  # EDIT: allowed elements covered by your checkpoint
     revision=model.name,
     domain='Local MACE checkpoint; application accuracy not independently validated',
 )
@@ -39,9 +38,49 @@ Path('registry_mace.json').write_text(json.dumps({'mace_omat': cfg}, indent=2))
 PY
 ```
 
-The example element list is an application allowlist, not a statement of the
-checkpoint's full coverage. Replace it for your inputs and checkpoint. Keep
-`demo_only` and `domain` accurate for your validation status. Existing registries
+The template includes all **89 elements** in the official MACE-OMAT-0 training
+configuration: atomic numbers **1–83 and 89–94** (H through Bi, then Ac through
+Pu). It excludes Po, At, Rn, Fr, Ra and elements beyond Pu. Sources:
+[official OMAT training statistics](https://github.com/ACEsuit/mace-foundations/blob/main/mace_omat/omat-statistics.json)
+and [medium-model training command](https://github.com/ACEsuit/mace-foundations/blob/main/mace_omat/mace-omat-medium.sh).
+
+`elements` is the gateway's allowlist; adding a symbol does not teach a model a
+new element. MACE is a model family, so custom/fine-tuned or molecular checkpoints
+can have different element tables. For these, read the actual local checkpoint
+rather than copying the OMAT list. After installing MACE, this updates only the
+`elements` field of an existing registry, preserving device, path, hash and other
+entries. Load only a trusted checkpoint:
+
+```bash
+python - <<'PY'
+import hashlib
+import json
+from pathlib import Path
+from ase.data import chemical_symbols
+from mace.calculators import MACECalculator
+
+path = Path('registry_mace.json')
+original = path.read_bytes()
+registry = json.loads(original)
+cfg = registry['mace_omat']  # change if your potential has another ID
+model = Path(cfg['model_path']).resolve()
+if hashlib.sha256(model.read_bytes()).hexdigest() != cfg['sha256']:
+    raise ValueError('Model hash mismatch; verify the checkpoint before updating')
+calc = MACECalculator(model_paths=str(model), device='cpu',
+                      default_dtype=cfg.get('default_dtype', 'float64'))
+numbers = sorted({int(z) for z in calc.z_table.zs})
+if not numbers or any(z < 1 or z >= len(chemical_symbols) for z in numbers):
+    raise ValueError('Invalid checkpoint element table')
+cfg['elements'] = [chemical_symbols[z] for z in numbers]
+backup = path.with_name(path.name + '.before-elements.bak')
+with backup.open('xb') as out:
+    out.write(original)
+path.write_text(json.dumps(registry, indent=2) + '\n')
+print(f"Updated {len(cfg['elements'])} elements:", ' '.join(cfg['elements']))
+PY
+```
+
+Keep `demo_only` and `domain` accurate for your validation status. Existing registries
 without `default_dtype` retain their previous `float64` behavior. Each submitted
 job snapshots the registry, and the worker rechecks the model hash before loading.
 Only the operator supplies model paths; agent tools accept registered IDs.
