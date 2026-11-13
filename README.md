@@ -122,6 +122,12 @@ python3 -m sciowl_agent.cli --workspace runs/mlip --registry my_registry.json \
 
 The administrator registry is snapshotted into each job, so the worker uses the submitted configuration even if the registry later changes. Weight hashes are rechecked at execution. Upstream MACE NPU devices are intentionally rejected because this package has no validated MACE Ascend implementation. CPU/CUDA adapters are included but require actual-weight validation.
 
+The MACE registry now accepts `default_dtype` (`float32` or `float64`).
+`evaluate_energy_forces` supports an explicit stress policy and JSONL export;
+`evaluate_structures` evaluates all imported frames with one calculator instance.
+Use `import INPUT --all` for XYZ/extXYZ/CIF batches and `export-predictions` to
+save results. See [MACE prediction setup and complete commands](docs/MACE_PREDICTIONS.md).
+
 ### Quantum ESPRESSO
 
 `configs/registry_qe.example.json` configures ASE Espresso with an administrator-selected `pw.x` command, pseudopotentials, checksums, k-grid, and SCF settings. All examples require real local pseudopotentials and convergence studies. Use the same single-point/relaxation tools with that registry entry. QE runs in an isolated job directory; the model cannot supply executable commands. This adapter is not hardware-tested in the delivered validation.

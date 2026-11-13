@@ -15,6 +15,16 @@ class Potential(Structure):
     potential_id: str = "emt_demo"
 
 
+class SinglePoint(Potential):
+    stress_policy: Literal["auto", "required", "skip"] = "auto"
+
+
+class BatchSinglePoint(Args):
+    structure_ids: list[str] = Field(min_length=1, max_length=1000)
+    potential_id: str
+    stress_policy: Literal["auto", "required", "skip"] = "auto"
+
+
 class Relax(Potential):
     fmax_eV_per_A: float = Field(default=0.03, gt=0, le=1)
     max_steps: int = Field(default=200, ge=1, le=2000)
@@ -53,7 +63,8 @@ TOOLS = {
     "inspect_structure": (Structure, "Inspect a registered structure; returns composition, PBC, and geometry diagnostics."),
     "list_potentials": (Empty, "List administrator-registered potentials, hardware, domain limits, and demo status."),
     "check_potential": (Potential, "Check element coverage and registry restrictions. Compatibility is not an accuracy guarantee."),
-    "evaluate_energy_forces": (Potential, "Compute total energy in eV and forces in eV/Angstrom; queues a job."),
+    "evaluate_energy_forces": (SinglePoint, "Queue total energy, forces, and stress for one registered structure. stress_policy: auto returns null when undefined/unavailable; required fails; skip omits calculation."),
+    "evaluate_structures": (BatchSinglePoint, "Queue energy, forces and stress for an ordered list of registered structures (up to 1000), reusing one calculator. Returns a predictions JSONL artifact; one record per frame. stress_policy is auto, required, or skip."),
     "submit_relaxation": (Relax, "Queue fixed-cell atomic relaxation; convergence requires final maximum force below requested tolerance."),
     "submit_eos": (EOS, "Queue fixed-fractional-coordinate volume scan and Birch-Murnaghan EOS fit. No internal relaxation per volume."),
     "submit_md": (MD, "Queue fixed-cell ASE MD. Equilibration uses Langevin, production is NVE or Langevin NVT. Output positions remain unwrapped."),
