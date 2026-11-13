@@ -85,7 +85,7 @@ class Harness:
             try:
                 args=json.loads(call["function"]["arguments"])
                 name=call["function"]["name"]
-                if name in ["evaluate_energy_forces","submit_relaxation","submit_eos","submit_md"] and len(s["jobs"])>=self.max_jobs:
+                if name in ["evaluate_energy_forces","evaluate_structures","submit_relaxation","submit_eos","submit_md"] and len(s["jobs"])>=self.max_jobs:
                     raise ValueError("Session calculation budget exhausted")
                 out=self.gateway.call(name,args,s["session_id"])
             except (ValueError,TypeError,KeyError) as exc:

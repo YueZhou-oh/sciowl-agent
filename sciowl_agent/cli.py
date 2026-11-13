@@ -5,7 +5,7 @@ import time
 from pathlib import Path
 from ase.build import bulk
 from .store import Store,canonical
-from .science import Registry,atoms_to_id,import_structure
+from .science import Registry,atoms_to_id,import_structure,import_structures
 from .gateway import Gateway
 from .model import EndpointModel,ScriptedModel
 from .harness import Harness
@@ -36,6 +36,9 @@ def main():
     sub=p.add_subparsers(dest="cmd",required=True)
     sub.add_parser("demo",help="Real EMT calculation with a scripted baseline; no SciOWL required")
     imp=sub.add_parser("import");imp.add_argument("path")
+    imp.add_argument("--all", action="store_true", help="Import all XYZ/extXYZ/CIF frames (up to 1000); default is the first frame")
+    pred=sub.add_parser("export-predictions", help="Export a completed single-point/batch job to JSONL")
+    pred.add_argument("--job", required=True);pred.add_argument("--output", required=True)
     tool=sub.add_parser("tool");tool.add_argument("name");tool.add_argument("arguments",help="JSON object");tool.add_argument("--session",default="cli")
     worker=sub.add_parser("worker");worker.add_argument("--loop",action="store_true");worker.add_argument("--timeout",type=float,default=600)
     worker.add_argument("--progress", action="store_true", help="Print job progress to stderr")
@@ -57,7 +60,26 @@ def main():
     if args.cmd=="demo":
         print(json.dumps(demo(args.workspace),indent=2));return
     if args.cmd=="import":
-        out={"structure_id":import_structure(store,args.path)}
+        if args.all:
+            ids=import_structures(store,args.path)
+            out={"structure_ids":ids,"frames":len(ids)}
+        else:
+            out={"structure_id":import_structure(store,args.path)}
+    elif args.cmd=="export-predictions":
+        job=store.job(args.job)
+        if job["status"] != "completed":
+            raise ValueError("Predictions can only be exported from a completed job")
+        result=store.get_json(job["result"]["result_id"], "result")
+        if "predictions_id" not in result:
+            raise ValueError("Job has no predictions JSONL artifact")
+        source=store.artifact(result["predictions_id"], "predictions")
+        target=Path(args.output).resolve()
+        if target.is_relative_to(store.root):
+            raise ValueError("Export outside the managed workspace to preserve job artifacts")
+        target.parent.mkdir(parents=True,exist_ok=True)
+        with target.open("xb") as output:
+            output.write(source.read_bytes())
+        out={"output":str(target),"predictions_id":result["predictions_id"]}
     elif args.cmd=="tool":
         out=Gateway(store,Registry(args.registry)).call(args.name,json.loads(args.arguments),args.session)
     elif args.cmd=="worker":

@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 from ase.calculators.calculator import PropertyNotImplementedError
 from ase import Atoms, units
-from ase.io import read, write
+from ase.io import read, write, iread
 from ase.calculators.emt import EMT
 from ase.eos import EquationOfState
 from ase.optimize import FIRE, BFGS
@@ -43,6 +43,20 @@ def import_structure(store, path):
     return atoms_to_id(store, atoms, {"source_sha256":hashlib.sha256(Path(path).read_bytes()).hexdigest()})
 
 
+def import_structures(store, path):
+    """Import all frames in order; duplicates keep their source frame identity."""
+    digest = hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    ids = []
+    for index, atoms in enumerate(iread(path, index=":")):
+        if index >= 1000:
+            raise ValueError("At most 1000 frames per import; split the input file")
+        inspect(atoms)
+        ids.append(atoms_to_id(store, atoms, {"source_sha256": digest, "frame_index": index}))
+    if not ids:
+        raise ValueError("Input contains no structures")
+    return ids
+
+
 def inspect(atoms):
     if not 1 <= len(atoms) <= 256:
         raise ValueError("Initial release supports 1..256 atoms")
@@ -64,7 +78,7 @@ class Registry:
     def __init__(self, path=None):
         self.entries = json.loads(Path(path).read_text()) if path else DEFAULT_REGISTRY
 
-    def checked(self, atoms, pid):
+    def checked(self, atoms, pid, *, verify_assets=True):
         if pid not in self.entries:
             raise ValueError("Unregistered potential")
         cfg = dict(self.entries[pid])
@@ -72,12 +86,17 @@ class Registry:
             raise ValueError("Potential does not cover these elements")
         if len(atoms)>cfg.get("max_atoms",256):
             raise ValueError("Potential atom budget exceeded")
+        if not verify_assets:
+            return cfg
         if cfg["backend"] == "mace":
+            if cfg.get("default_dtype", "float64") not in ("float32", "float64"):
+                raise ValueError("MACE default_dtype must be float32 or float64")
             path = Path(cfg["model_path"]).resolve()
             if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != cfg["sha256"]:
                 raise ValueError("MACE weight missing or SHA256 mismatch")
             if cfg.get("device","cpu").startswith("npu"):
                 raise ValueError("Upstream MACE NPU execution is not validated by this release; use a separately validated backend")
+            cfg["model_path"] = str(path)
         elif cfg["backend"] == "espresso":
             for name,digest in cfg["pseudopotential_sha256"].items():
                 pp=(Path(cfg["pseudo_dir"])/name).resolve()
@@ -100,20 +119,84 @@ def calculator(cfg,directory=None):
         profile=EspressoProfile(command=cfg["command"],pseudo_dir=cfg["pseudo_dir"])
         return Espresso(profile=profile,pseudopotentials=cfg["pseudopotentials"],
                         input_data=cfg["input_data"],kpts=tuple(cfg["kpts"]),directory=str(directory))
-    from mace.calculators import MACECalculator
-    return MACECalculator(model_paths=cfg["model_path"], device=cfg.get("device","cpu"), default_dtype="float64")
+    try:
+        from mace.calculators import MACECalculator
+    except ImportError as exc:
+        raise ImportError("MACE backend requires mace-torch; install sciowl-agent[mlip] in the worker environment") from exc
+    return MACECalculator(model_paths=cfg["model_path"], device=cfg.get("device","cpu"),
+                          default_dtype=cfg.get("default_dtype", "float64"))
 
 
 def finite_values(atoms):
     energy = float(atoms.get_potential_energy())
     forces = atoms.get_forces()
-    if not np.isfinite(energy) or not np.isfinite(forces).all():
+    if forces.shape != (len(atoms), 3) or not np.isfinite(energy) or not np.isfinite(forces).all():
         raise ValueError("Nonfinite calculator output")
     return energy, forces
 
 
+def predict_frame(atoms, stress_policy="auto"):
+    energy, forces = finite_values(atoms)
+    out = {"formula": atoms.get_chemical_formula(), "energy_eV": energy,
+           "forces_eV_per_A": forces.tolist(), "stress_eV_per_A3": None,
+           "stress_available": False,
+           "stress_convention": "ASE tension-positive, Voigt xx yy zz yz xz xy"}
+    if stress_policy == "skip":
+        out["stress_unavailable_reason"] = "Stress calculation skipped by request"
+    elif not atoms.pbc.any() or abs(np.linalg.det(atoms.cell)) < 1e-8:
+        out["stress_unavailable_reason"] = "Stress requires a periodic structure with a nonsingular cell"
+    else:
+        try:
+            stress = np.asarray(atoms.get_stress(voigt=True))
+        except PropertyNotImplementedError:
+            out["stress_unavailable_reason"] = "Calculator does not implement stress"
+        else:
+            if stress.shape != (6,) or not np.isfinite(stress).all():
+                raise ValueError("Invalid or nonfinite stress")
+            out.update(stress_eV_per_A3=stress.tolist(), stress_available=True)
+    if stress_policy == "required" and not out["stress_available"]:
+        raise ValueError(out["stress_unavailable_reason"])
+    return out
+
+
+def execute_batch(store, job, tick, progress):
+    spec = job["spec"]
+    args, cfg = spec["arguments"], spec["potential"]
+    registry = Registry()
+    registry.entries = {args["potential_id"]: cfg}
+    work = store.root / "work" / job["id"]
+    work.mkdir(exist_ok=True)
+    calc = None
+    path = work / "predictions.jsonl"
+    with path.open("w", encoding="utf-8") as output:
+        for index, sid in enumerate(args["structure_ids"]):
+            tick()
+            atoms = load_atoms(store, sid)
+            registry.checked(atoms, args["potential_id"], verify_assets=index == 0)
+            if calc is None:
+                if progress is not None:
+                    progress("loading calculator")
+                calc = calculator(cfg, work / "calculator")
+            atoms.calc = calc
+            record = {"index": index, "structure_id": sid,
+                      **predict_frame(atoms, args["stress_policy"])}
+            output.write(json.dumps(record, allow_nan=False) + "\n")
+            output.flush()
+            tick()
+            if progress is not None:
+                progress(f"frame={index + 1}/{len(args['structure_ids'])} formula={record['formula']} energy={record['energy_eV']:.8g} eV stress_available={record['stress_available']}")
+    predictions_id = store.put_bytes(path.read_bytes(), "predictions", ".jsonl", {"job_id": job["id"]})
+    return {"operation": spec["operation"], "input_structure_ids": args["structure_ids"],
+            "potential_id": args["potential_id"], "frames": len(args["structure_ids"]),
+            "predictions_id": predictions_id, "demo_only": cfg.get("demo_only", True),
+            "scientific_scope": cfg["domain"], "stress_policy": args["stress_policy"],
+            "stress_convention": "ASE tension-positive, Voigt xx yy zz yz xz xy"}
+
+
 def execute(store, job, tick, *, progress=None):
     spec = job["spec"]
+    if spec["operation"] == "evaluate_structures":
+        return execute_batch(store, job, tick, progress)
     a = spec["arguments"]
     atoms = load_atoms(store, a["structure_id"])
     cfg = spec["potential"]
@@ -132,19 +215,21 @@ def execute(store, job, tick, *, progress=None):
     if kind == "evaluate_energy_forces":
         if progress is not None:
             progress("evaluating energy and forces")
-        e,f = finite_values(atoms)
+        prediction = predict_frame(atoms, a.get("stress_policy", "auto"))
+        e, f = prediction["energy_eV"], np.asarray(prediction["forces_eV_per_A"])
         force_id = store.put_json({"forces_eV_per_A":f.tolist()}, "forces", {"job_id":job["id"]})
         fm = float(np.linalg.norm(f, axis=1).max())
         result.update(energy_eV=e, max_force_eV_per_A=fm, forces_id=force_id)
         if progress is not None:
             progress(f"energy={e:.8g} eV max_force={fm:.8g} eV/Å")
-        try:
-            stress=atoms.get_stress(voigt=True)
-            if not np.isfinite(stress).all():raise ValueError("Nonfinite stress")
+        result.update({k: v for k, v in prediction.items() if k != "forces_eV_per_A"})
+        record = {"index": 0, "structure_id": a["structure_id"], **prediction}
+        result["predictions_id"] = store.put_bytes(
+            (json.dumps(record, allow_nan=False) + "\n").encode(), "predictions", ".jsonl", {"job_id": job["id"]})
+        if prediction["stress_available"]:
+            stress = np.asarray(prediction["stress_eV_per_A3"])
             result.update(stress_voigt_eV_per_A3=stress.tolist(),stress_voigt_GPa=(stress/units.GPa).tolist(),
                           stress_convention="ASE tension-positive, Voigt xx yy zz yz xz xy")
-        except PropertyNotImplementedError:
-            result["stress_available"]=False
     elif kind == "submit_relaxation":
         opt = {"FIRE":FIRE,"BFGS":BFGS}[a["optimizer"]](atoms, logfile=str(work/"optimizer.log"), trajectory=str(work/"relax.traj"))
         opt.attach(tick, interval=1)

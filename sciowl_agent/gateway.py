@@ -32,7 +32,8 @@ class Gateway:
                         result["ready"]=False
                         if j["status"] in ["failed","cancelled","interrupted"]:
                             failure={"job_id":j["id"],"status":j["status"],"error":j["error"],
-                                     "input_structure_id":j["spec"]["arguments"]["structure_id"],
+                                     "input_structure_id":j["spec"]["arguments"].get("structure_id"),
+                                     "input_structure_ids":j["spec"]["arguments"].get("structure_ids"),
                                      "notice":"No successful numerical result exists for this job"}
                             result["result_id"]=self.store.put_json(failure,"result")
                             result["result"]=failure
@@ -44,7 +45,11 @@ class Gateway:
                 aid=self.store.put_json(data,"analysis")
                 result={"analysis_id":aid,**data}
             else:
-                cfg=self.registry.checked(load_atoms(self.store,args["structure_id"]),args["potential_id"])
+                ids = args["structure_ids"] if name == "evaluate_structures" else [args["structure_id"]]
+                for index, sid in enumerate(ids):
+                    checked = self.registry.checked(load_atoms(self.store, sid), args["potential_id"], verify_assets=index == 0)
+                    if index == 0:
+                        cfg = checked
                 spec={"operation":name,"arguments":args,"potential":cfg,"schema_version":1}
                 key=hashlib.sha256((session_id+canonical(spec)).encode()).hexdigest()
                 j=self.store.submit(spec,key)
