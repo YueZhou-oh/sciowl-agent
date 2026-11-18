@@ -18,10 +18,25 @@ Do not claim reliable diffusion from a short trajectory. EMT is a classical demo
 '''
 
 
+def action_schema(tools):
+    branches = []
+    for tool in tools:
+        function = tool["function"]
+        branches.append({
+            "type": "object", "additionalProperties": False, "required": ["tool", "arguments"],
+            "properties": {"tool": {"enum": [function["name"]]}, "arguments": function["parameters"]},
+        })
+    branches.append({
+        "type": "object", "additionalProperties": False, "required": ["summary", "evidence_ids"],
+        "properties": {"summary": {"type": "string"}, "evidence_ids": {"type": "array", "items": {"type": "string"}}},
+    })
+    return {"type": "object", "anyOf": branches}
+
+
 class EndpointModel:
     def __init__(self,base_url,model,protocol="native",timeout=600.,max_tokens=4096,client=None):
-        if protocol not in ["native","json"]:
-            raise ValueError("protocol must be native or json")
+        if protocol not in ["native","json","schema"]:
+            raise ValueError("protocol must be native, json or schema")
         self.base_url=base_url.rstrip('/')
         self.model=model
         self.protocol=protocol
@@ -66,6 +81,10 @@ class EndpointModel:
                     content = json.dumps(actions[0] if len(actions) == 1 else actions)
                 outgoing.append({"role": role, "content": content})
             payload["messages"]=outgoing
+            if self.protocol == "schema":
+                payload["response_format"] = {"type": "json_schema", "json_schema": {
+                    "name": "sciowl_action", "schema": action_schema(tools),
+                }}
         key=os.environ.get("SCIOWL_API_KEY","")
         response=self.client.post(self.base_url+"/chat/completions",json=payload,
                                    headers={"Authorization":"Bearer "+key} if key else {})
@@ -74,7 +93,7 @@ class EndpointModel:
         if data["choices"][0].get("finish_reason")=="length":
             raise ValueError("Model response truncated; increase output budget")
         msg=data["choices"][0]["message"]
-        if self.protocol=="json":
+        if self.protocol!="native":
             obj=json.loads(msg["content"])
             if "tool" in obj:
                 msg={"role":"assistant","content":None,"tool_calls":[{"id":"json_action",

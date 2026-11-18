@@ -1,17 +1,19 @@
-export SCIOWL_BASE_URL=https://api.deepseek.com
-export SCIOWL_MODEL=deepseek-flash
-export SCIOWL_API_KEY=sk-933088bcd3694acca9b8accae302071b
-
+#!/usr/bin/env bash
+set -euo pipefail
+: "${SCIOWL_BASE_URL:?Set the endpoint URL, including /v1 for vLLM}"
+: "${SCIOWL_MODEL:?Set the served model name}"
+input=${1:-scripts/Cu4_fcc_emt_demo.cif}
 current_time="$(date +%Y%m%d-%H%M%S)"
 ws="$PWD/runs/${SCIOWL_MODEL}-mace-${current_time}"
-registry="$PWD/registry_mace.json"
+registry="${SCIOWL_REGISTRY:-$PWD/registry_mace.json}"
+[[ -r "$registry" ]] || { echo "Missing registry: $registry (see docs/MACE_PREDICTIONS.md)" >&2; exit 1; }
 
 # ouput_log="${ws}/run_output.json"
 
 # Replace target.cif with your actual CIF, XYZ, or extXYZ file.
 # The extra Python command extracts only the structure ID from the JSON output.
 sid=$(python3 -m sciowl_agent.cli \
-  --workspace "$ws" import "$PWD/mace-demo/demo.xyz" |
+  --workspace "$ws" import "$input" |
   python3 -c 'import json,sys; print(json.load(sys.stdin)["structure_id"])')
 
 printf 'Structure ID: %s\n' "$sid"
@@ -20,14 +22,15 @@ printf 'Structure ID: %s\n' "$sid"
 python3 -m sciowl_agent.cli \
   --workspace "$ws" --registry "$registry" \
   tool check_potential \
-  "{\"structure_id\":\"$sid\",\"potential_id\":\"mace_omat\"}"
+  "{\"structure_id\":\"$sid\",\"potential_id\":\"mace_omat\"}" |
+  python3 -c 'import json,sys; x=json.load(sys.stdin); print(x); sys.exit(0 if x.get("compatible") is True else 1)'
 
 # The worker receives the potential configuration saved in each job
 python3 -m sciowl_agent.cli \
   --workspace "$ws" \
   worker --loop --progress --timeout 1800 &
 worker_pid=$!
-echo ${worker_pid}
+trap 'kill "$worker_pid" 2>/dev/null || true; wait "$worker_pid" 2>/dev/null || true' EXIT
 
 session="run_output-$(date +%Y%m%d-%H%M%S)"
 
@@ -39,10 +42,11 @@ python3 -m sciowl_agent.cli \
   agent \
   --base-url "$SCIOWL_BASE_URL" \
   --model "$SCIOWL_MODEL" \
-  --protocol native \
+  --protocol "${SCIOWL_PROTOCOL:-native}" \
+  --max-tokens "${SCIOWL_MAX_TOKENS:-512}" --http-timeout "${SCIOWL_HTTP_TIMEOUT:-180}" \
   --session "$session" \
   --max-steps 20 \
-  --max-jobs 2 \
+  --max-jobs 1 \
   --follow \
   --wall-seconds 1800 \
   --request "Inspect structure $sid and check compatibility with potential mace_omat.
@@ -80,7 +84,5 @@ python3 -m sciowl_agent.cli --workspace "$ws" \
   export-predictions \
   --job "$jid" \
   --output "$export_dir/predictions.jsonl"
-
-kill "$worker_pid"
 
 echo "mace demo finished..."
