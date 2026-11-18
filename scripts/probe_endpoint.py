@@ -8,13 +8,22 @@ from sciowl_agent.model import EndpointModel, SYSTEM
 from sciowl_agent.contracts import tool_schemas
 
 
+def matches_call(message, expected, arguments):
+    calls = message.get("tool_calls") or []
+    if len(calls) != 1:
+        return False
+    function = calls[0]["function"]
+    return function["name"] == expected and json.loads(function["arguments"]) == arguments
+
+
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--base-url", default=os.environ.get("SCIOWL_BASE_URL", "http://10.1.0.232:8005/v1"))
+    p.add_argument("--base-url", default=os.environ.get("SCIOWL_BASE_URL", "http://127.0.0.1:8005/v1"))
     p.add_argument("--model", default=os.environ.get("SCIOWL_MODEL", "sciowl"))
-    p.add_argument("--protocol", choices=["native", "json"], default="native")
+    p.add_argument("--protocol", choices=["native", "json", "schema"], default="native")
     p.add_argument("--max-tokens", type=int, default=4096,
                    help="Completion budget; 1024 often truncates Qwen-style thinking+tool calls")
+    p.add_argument("--timeout", type=float, default=180)
     p.add_argument("--output", default="endpoint_probe.json")
     a = p.parse_args()
     if not a.base_url:
@@ -22,7 +31,7 @@ def main():
     if a.max_tokens < 1:
         p.error("--max-tokens must be positive")
 
-    model = EndpointModel(a.base_url, a.model, a.protocol, max_tokens=a.max_tokens)
+    model = EndpointModel(a.base_url, a.model, a.protocol, max_tokens=a.max_tokens, timeout=a.timeout)
     cases = [
         ("selection", "List the available registered potentials using the provided tool.", "list_potentials"),
         ("arguments", "Inspect the registered structure with ID structure_probe using the appropriate tool.", "inspect_structure"),
@@ -36,9 +45,13 @@ def main():
                 tool_schemas(),
             )
             calls = msg.get("tool_calls") or []
-            valid = (not calls) if expected is None else bool(calls and calls[0]["function"]["name"] == expected)
-            if expected == "inspect_structure" and valid:
-                valid = json.loads(calls[0]["function"]["arguments"]).get("structure_id") == "structure_probe"
+            if expected is None:
+                final = json.loads(msg.get("content") or "{}")
+                valid = (not calls and isinstance(final, dict) and bool(final.get("summary"))
+                         and isinstance(final["summary"], str) and final.get("evidence_ids") == [])
+            else:
+                arguments = {"structure_id": "structure_probe"} if expected == "inspect_structure" else {}
+                valid = matches_call(msg, expected, arguments)
             results.append({"case": name, "passed": valid, "response": msg})
         except Exception as exc:
             results.append({"case": name, "passed": False, "error": str(exc)})

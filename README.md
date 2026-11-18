@@ -209,3 +209,5 @@ The related Cu cases are smoke tests, not an independent scientific benchmark. T
 
 Primary interfaces: [ASE](https://docs.ase-lib.org/), [LangGraph](https://docs.langchain.com/oss/python/langgraph/graph-api), [Qwen function calling](https://qwen.readthedocs.io/en/stable/framework/function_call.html), [vLLM-Ascend](https://github.com/vllm-project/vllm-ascend).
 
+
+For endpoint, parser, and MACE workflow diagnostics, see [Debug SciOWL tool calls](docs/ENDPOINT_DEBUGGING.md).

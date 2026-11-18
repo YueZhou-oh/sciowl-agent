@@ -44,9 +44,11 @@ def main():
     worker.add_argument("--progress", action="store_true", help="Print job progress to stderr")
     rec=sub.add_parser("recover-stale");rec.add_argument("--seconds",type=float,default=3600)
     agent=sub.add_parser("agent");agent.add_argument("--session",required=True);agent.add_argument("--request")
-    agent.add_argument("--base-url",default=os.environ.get("SCIOWL_BASE_URL","http://10.1.0.232:8005/v1"))
+    agent.add_argument("--base-url",default=os.environ.get("SCIOWL_BASE_URL","http://127.0.0.1:8005/v1"))
     agent.add_argument("--model",default=os.environ.get("SCIOWL_MODEL","sciowl"))
-    agent.add_argument("--protocol",choices=["native","json"],default="native")
+    agent.add_argument("--max-tokens",type=int,default=4096)
+    agent.add_argument("--http-timeout",type=float,default=600.)
+    agent.add_argument("--protocol",choices=["native","json","schema"],default="native")
     agent.add_argument("--max-steps",type=int,default=20);agent.add_argument("--max-jobs",type=int,default=8)
     agent.add_argument("--follow",action="store_true",help="Resume automatically after worker completion")
     agent.add_argument("--wall-seconds",type=float,default=600)
@@ -93,7 +95,7 @@ def main():
         out={"marked_interrupted":store.recover_stale(args.seconds)}
     elif args.cmd=="agent":
         if args.max_steps<1 or args.max_jobs<1:p.error("budgets must be positive")
-        model=EndpointModel(args.base_url,args.model,args.protocol)
+        model=EndpointModel(args.base_url,args.model,args.protocol,timeout=args.http_timeout,max_tokens=args.max_tokens)
         harness=Harness(store,Gateway(store,Registry(args.registry)),model,args.max_steps,args.max_jobs)
         deadline=time.monotonic()+args.wall_seconds
         out=harness.run(args.session,args.request)
