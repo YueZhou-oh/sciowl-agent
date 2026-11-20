@@ -23,6 +23,16 @@ Validation writes `validation/local/pytest.txt`, `pytest.xml`, `report.json`, an
 
 ## 2. Connect your SciOWL server
 
+To calculate directly from a local file and a natural-language request, see
+[the one-command workflow](docs/ONE_COMMAND.md). It combines import, preflight,
+agent decisions, local job execution and result retrieval:
+
+```bash
+python3 -m sciowl_agent.cli --registry registry_mace.json run \
+  --structure scripts/Cu4_fcc_emt_demo.cif --potential mace_omat \
+  "Calculate energy, atomic forces and stress without relaxation."
+```
+
 Export SciOWL to a supported Hugging Face format and validate export equivalence independently. In your matched vLLM-Ascend container:
 
 ```bash

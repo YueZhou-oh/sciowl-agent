@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 import time
+import uuid
 from pathlib import Path
 from ase.build import bulk
 from .store import Store,canonical
@@ -52,12 +53,42 @@ def main():
     agent.add_argument("--max-steps",type=int,default=20);agent.add_argument("--max-jobs",type=int,default=8)
     agent.add_argument("--follow",action="store_true",help="Resume automatically after worker completion")
     agent.add_argument("--wall-seconds",type=float,default=600)
+    run=sub.add_parser("run", help="Import a structure and execute a natural-language calculation request")
+    run.add_argument("request", help="Natural-language calculation request")
+    run.add_argument("--structure", required=True, help="Local CIF/XYZ/extXYZ path; imports the first frame")
+    run.add_argument("--potential", help="Registered potential ID, for example mace_omat")
+    run.add_argument("--base-url", default=os.environ.get("SCIOWL_BASE_URL", "http://127.0.0.1:8005/v1"))
+    run.add_argument("--model", default=os.environ.get("SCIOWL_MODEL", "sciowl"))
+    run.add_argument("--protocol", choices=["native", "json", "schema"], default=os.environ.get("SCIOWL_PROTOCOL", "native"))
+    run.add_argument("--max-tokens", type=int, default=int(os.environ.get("SCIOWL_MAX_TOKENS", "4096")))
+    run.add_argument("--http-timeout", type=float, default=float(os.environ.get("SCIOWL_HTTP_TIMEOUT", "600")))
+    run.add_argument("--max-steps", type=int, default=20)
+    run.add_argument("--max-jobs", type=int, default=8)
+    run.add_argument("--wall-seconds", type=float, default=600)
+    run.add_argument("--job-timeout", type=float, default=600)
+    run.add_argument("--quiet", action="store_true", help="Suppress worker progress on stderr")
     exp=sub.add_parser("export");exp.add_argument("--session",required=True);exp.add_argument("--output",required=True)
     exp.add_argument("--reviewed",action="store_true",help="Assert human/expert review was actually completed")
     exp.add_argument("--format",choices=["canonical","sharegpt"],default="canonical")
     tok=sub.add_parser("tokenize");tok.add_argument("--input",required=True);tok.add_argument("--output",required=True)
     tok.add_argument("--tokenizer",required=True);tok.add_argument("--max-length",type=int,default=8192)
     args=p.parse_args()
+    if args.cmd == "run":
+        if any(getattr(args, key) <= 0 for key in
+               ("max_steps", "max_jobs", "max_tokens", "wall_seconds", "job_timeout", "http_timeout")):
+            p.error("budgets and timeouts must be positive")
+        from .workflow import run_structure
+        session = "run-" + uuid.uuid4().hex
+        store = Store(Path(args.workspace) / "runs" / session)
+        model = EndpointModel(args.base_url, args.model, args.protocol,
+                              timeout=args.http_timeout, max_tokens=args.max_tokens)
+        out = run_structure(store, model, args.structure, args.request, session,
+                            registry=args.registry, potential=args.potential,
+                            max_steps=args.max_steps, max_jobs=args.max_jobs,
+                            wall_seconds=args.wall_seconds, job_timeout=args.job_timeout,
+                            progress=not args.quiet)
+        print(json.dumps(out, indent=2))
+        raise SystemExit(0 if out["status"] == "completed" else 1)
     store=Store(args.workspace)
     if args.cmd=="demo":
         print(json.dumps(demo(args.workspace),indent=2));return
