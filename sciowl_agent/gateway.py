@@ -16,7 +16,7 @@ class Gateway:
                 raise ValueError("Tool not available")
             args=TOOLS[name][0].model_validate(arguments).model_dump()
             if name=="list_potentials":
-                result={"potentials":{k:{x:v for x,v in cfg.items() if x not in ["model_path","command","pseudo_dir"]}
+                result={"potentials":{k:{x:v for x,v in cfg.items() if x not in ["model_path","command","pseudo_dir","nep_bin","runtime_library_dir"]}
                                       for k,cfg in self.registry.entries.items()}}
             elif name=="inspect_structure":
                 result=inspect(load_atoms(self.store,args["structure_id"]))

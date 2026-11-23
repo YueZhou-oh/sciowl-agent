@@ -221,3 +221,5 @@ Primary interfaces: [ASE](https://docs.ase-lib.org/), [LangGraph](https://docs.l
 
 
 For endpoint, parser, and MACE workflow diagnostics, see [Debug SciOWL tool calls](docs/ENDPOINT_DEBUGGING.md).
+
+Native NEP support: see [NEP predictions](docs/NEP_PREDICTIONS.md).
