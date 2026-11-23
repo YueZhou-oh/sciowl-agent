@@ -97,6 +97,9 @@ class Registry:
             if cfg.get("device","cpu").startswith("npu"):
                 raise ValueError("Upstream MACE NPU execution is not validated by this release; use a separately validated backend")
             cfg["model_path"] = str(path)
+        elif cfg["backend"] == "nep":
+            from .nep import validate_config
+            cfg = validate_config(cfg, atoms)
         elif cfg["backend"] == "espresso":
             for name,digest in cfg["pseudopotential_sha256"].items():
                 pp=(Path(cfg["pseudo_dir"])/name).resolve()
@@ -119,6 +122,11 @@ def calculator(cfg,directory=None):
         profile=EspressoProfile(command=cfg["command"],pseudo_dir=cfg["pseudo_dir"])
         return Espresso(profile=profile,pseudopotentials=cfg["pseudopotentials"],
                         input_data=cfg["input_data"],kpts=tuple(cfg["kpts"]),directory=str(directory))
+    if cfg["backend"] == "nep":
+        from .nep import NativeNEP
+        if directory is None:
+            raise ValueError("NEP requires an isolated job directory")
+        return NativeNEP(cfg, directory)
     try:
         from mace.calculators import MACECalculator
     except ImportError as exc:
@@ -167,12 +175,24 @@ def execute_batch(store, job, tick, progress):
     work = store.root / "work" / job["id"]
     work.mkdir(exist_ok=True)
     calc = None
+    native_results = None
+    if cfg["backend"] == "nep":
+        from .nep import predict_native
+        frames = [load_atoms(store, sid) for sid in args["structure_ids"]]
+        for index, atoms in enumerate(frames):
+            registry.checked(atoms, args["potential_id"], verify_assets=index == 0)
+        if progress is not None:
+            progress(f"evaluating {len(frames)} frames in one native NEP process")
+        native_results = predict_native(frames, cfg, work / "calculator", tick)
     path = work / "predictions.jsonl"
     with path.open("w", encoding="utf-8") as output:
         for index, sid in enumerate(args["structure_ids"]):
             tick()
             atoms = load_atoms(store, sid)
             registry.checked(atoms, args["potential_id"], verify_assets=index == 0)
+            if native_results is not None:
+                from ase.calculators.singlepoint import SinglePointCalculator
+                calc = SinglePointCalculator(atoms, **native_results[index])
             if calc is None:
                 if progress is not None:
                     progress("loading calculator")
@@ -208,6 +228,8 @@ def execute(store, job, tick, *, progress=None):
     work = store.root / "work" / job["id"]
     work.mkdir(exist_ok=True)
     atoms.calc = calculator(cfg,work/"calculator")
+    if cfg["backend"] == "nep":
+        atoms.calc.tick = tick
     tick()
     kind = spec["operation"]
     result = {"operation":kind, "input_structure_id":a["structure_id"], "potential_id":a["potential_id"],
