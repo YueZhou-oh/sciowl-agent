@@ -223,3 +223,38 @@ Primary interfaces: [ASE](https://docs.ase-lib.org/), [LangGraph](https://docs.l
 For endpoint, parser, and MACE workflow diagnostics, see [Debug SciOWL tool calls](docs/ENDPOINT_DEBUGGING.md).
 
 Native NEP support: see [NEP predictions](docs/NEP_PREDICTIONS.md).
+
+
+### Run with automatic potential registry preparation
+
+Configure `SCIOWL_BASE_URL`, `SCIOWL_MODEL`, and your endpoint's API key in the
+environment, then run from the repository root:
+
+```bash
+bash docs/run_at_once.sh scripts/Cu4_fcc_emt_demo.cif \
+  "Use mace to relax below 0.3 eV/Angstrom, up to 5 steps. Retrieve results and report actual convergence."
+```
+
+The runner can also be invoked by absolute path from another directory; the CIF
+path is resolved relative to your current directory. It imports the structure,
+lets the agent check compatibility and select the requested registered potential,
+and retrieves results. Five optimization steps are a limit, not a convergence guarantee.
+
+`scripts/prepare_registry.py` merges `registry_mace.json` and `registry_nep.json`
+from the repository root and `registry/`. It does not interpret the request or load
+models; the agent receives the available registry and interprets the request.
+Conflicting entries fail explicitly. `SCIOWL_REGISTRY` optionally selects a single
+existing registry instead. Checkpoint, executable, and runtime-library paths in
+`registry/registry_nep.json` describe the configured local installation; adjust
+these paths and verify hashes for other machines. The checkpoint and executable
+are not included in this repository.
+
+Each invocation writes a separate directory under `runs/calculation-*` containing
+the prepared registry (unless overridden), workspace, progress log, and captured
+stdout. `SCIOWL_PYTHON`, `SCIOWL_PROTOCOL`, `SCIOWL_MAX_TOKENS`, and
+`SCIOWL_HTTP_TIMEOUT` optionally override runner defaults.
+
+Final summaries may contain digits, including model names, formulas, and numerical
+results supported by cited evidence. Commentary remains explicitly unverified;
+tool-generated evidence is authoritative. Evidence IDs must still have been
+observed in the session, and pending jobs prevent finalization.
