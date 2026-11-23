@@ -1,6 +1,5 @@
 """LangGraph loop with SQLite checkpoints and recoverable pending calls."""
 import json
-import re
 import time
 import hashlib
 import fcntl
@@ -117,13 +116,11 @@ class Harness:
             raise ValueError("Calculation report requires observed evidence")
         if any(self.store.job(j)["status"] in ["queued","running"] for j in s["jobs"]):
             raise ValueError("Cannot finalize with pending jobs")
-        # Reject numeric commentary; calculated values are rendered solely from artifacts.
-        if re.search(r"\d",obj["summary"]):
-            raise ValueError("Keep summary qualitative; numeric facts belong in evidence tables")
+        # Commentary is unverified; authoritative values remain in evidence artifacts.
         facts=[{"evidence_id":eid,"data":self.store.get_json(eid)} for eid in obj["evidence_ids"]]
         report={"session_id":s["session_id"],"model_commentary":obj["summary"],
                 "commentary_verified":False,"evidence":facts,
-                "notice":"Numerical evidence is tool-generated. Qualitative model commentary requires scientific review."}
+                "notice":"Numerical evidence is tool-generated. Model commentary requires scientific review."}
         s["report_id"]=self.store.put_json(report,"report")
         s["status"]="completed"
 

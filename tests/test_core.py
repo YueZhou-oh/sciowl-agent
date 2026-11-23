@@ -272,3 +272,27 @@ def test_orphan_observation_rejected():
     with pytest.raises(ValueError,match="Orphan"):
         validate_record({"tools":[],"messages":[{"role":"tool","tool_call_id":"missing","content":"{}"}]})
 
+
+
+def test_final_summary_accepts_digits_and_preserves_evidence_checks(setup):
+    store, gateway, aid = setup
+    harness = Harness(store, gateway, ScriptedModel(aid))
+    eid = store.put_json({'max_force_eV_per_A': 0.23}, 'result')
+    state = {'session_id': 'numeric-summary', 'evidence': [eid], 'jobs': []}
+    msg = {'content': json.dumps({'summary': 'Cu4 reached 0.23 eV/Angstrom.',
+                                  'evidence_ids': [eid]})}
+    harness.finalize(state, msg)
+    assert state['status'] == 'completed'
+    report = store.get_json(state['report_id'])
+    assert report['commentary_verified'] is False
+    assert report['evidence'][0]['data']['max_force_eV_per_A'] == 0.23
+    with pytest.raises(ValueError, match='not observed'):
+        harness.finalize(state, {'content': json.dumps({
+            'summary': 'Cu4', 'evidence_ids': ['invented']})})
+    queued = gateway.call('submit_relaxation', {'structure_id': aid})
+    state['jobs'] = [queued['job_id']]
+    with pytest.raises(ValueError, match='requires observed evidence'):
+        harness.finalize(state, {'content': json.dumps({
+            'summary': 'Cu4', 'evidence_ids': []})})
+    with pytest.raises(ValueError, match='pending jobs'):
+        harness.finalize(state, msg)
