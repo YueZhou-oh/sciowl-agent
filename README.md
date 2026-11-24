@@ -258,3 +258,12 @@ Final summaries may contain digits, including model names, formulas, and numeric
 results supported by cited evidence. Commentary remains explicitly unverified;
 tool-generated evidence is authoritative. Evidence IDs must still have been
 observed in the session, and pending jobs prevent finalization.
+
+### GRACE with a separate Python environment
+
+GRACE is supported through the existing prediction and relaxation tools. Register
+it once with `python3 scripts/register_grace.py --elements Cu`, then run
+`bash docs/run_grace_api.sh` or name `grace` in your natural-language request.
+Inference uses `/dpc-zhouy/zhouy/miniconda3/envs/GRACE/bin/python`, independently
+of the agent's Python. See [GRACE setup and examples](docs/GRACE_PREDICTIONS.md)
+for verified element coverage, model registration, batch predictions, and limits.

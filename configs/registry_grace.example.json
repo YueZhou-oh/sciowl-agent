@@ -1,0 +1,14 @@
+{
+  "grace": {
+    "backend": "grace",
+    "model_path": "/dpc-zhouy/zhouy/sciowl-agent-tools/demo/GRACE/GRACE-2L-SMAX-OMAT-large",
+    "python_executable": "/dpc-zhouy/zhouy/miniconda3/envs/GRACE/bin/python",
+    "sha256": "GENERATE_WITH_scripts/register_grace.py",
+    "elements": ["Cu"],
+    "timeout_s": 600,
+    "max_atoms": 256,
+    "demo_only": true,
+    "revision": "GRACE-2L-SMAX-OMAT-large",
+    "domain": "Local GRACE checkpoint; application accuracy not independently validated"
+  }
+}
