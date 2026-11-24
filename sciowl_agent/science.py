@@ -97,6 +97,9 @@ class Registry:
             if cfg.get("device","cpu").startswith("npu"):
                 raise ValueError("Upstream MACE NPU execution is not validated by this release; use a separately validated backend")
             cfg["model_path"] = str(path)
+        elif cfg["backend"] == "grace":
+            from .grace import validate_config
+            cfg = validate_config(cfg, atoms)
         elif cfg["backend"] == "nep":
             from .nep import validate_config
             cfg = validate_config(cfg, atoms)
@@ -122,6 +125,11 @@ def calculator(cfg,directory=None):
         profile=EspressoProfile(command=cfg["command"],pseudo_dir=cfg["pseudo_dir"])
         return Espresso(profile=profile,pseudopotentials=cfg["pseudopotentials"],
                         input_data=cfg["input_data"],kpts=tuple(cfg["kpts"]),directory=str(directory))
+    if cfg["backend"] == "grace":
+        from .grace import ExternalGRACE
+        if directory is None:
+            raise ValueError("GRACE requires an isolated job directory")
+        return ExternalGRACE(cfg, directory)
     if cfg["backend"] == "nep":
         from .nep import NativeNEP
         if directory is None:
@@ -184,6 +192,15 @@ def execute_batch(store, job, tick, progress):
         if progress is not None:
             progress(f"evaluating {len(frames)} frames in one native NEP process")
         native_results = predict_native(frames, cfg, work / "calculator", tick)
+    if cfg["backend"] == "grace":
+        from .grace import predict_external
+        frames = [load_atoms(store, sid) for sid in args["structure_ids"]]
+        for index, atoms in enumerate(frames):
+            registry.checked(atoms, args["potential_id"], verify_assets=index == 0)
+        if progress is not None:
+            progress(f"evaluating {len(frames)} frames in the GRACE Python environment")
+        native_results = predict_external(frames, cfg, work / "calculator", tick,
+                                          stress=args["stress_policy"] != "skip")
     path = work / "predictions.jsonl"
     with path.open("w", encoding="utf-8") as output:
         for index, sid in enumerate(args["structure_ids"]):
@@ -228,7 +245,7 @@ def execute(store, job, tick, *, progress=None):
     work = store.root / "work" / job["id"]
     work.mkdir(exist_ok=True)
     atoms.calc = calculator(cfg,work/"calculator")
-    if cfg["backend"] == "nep":
+    if cfg["backend"] in ("nep", "grace"):
         atoms.calc.tick = tick
     tick()
     kind = spec["operation"]

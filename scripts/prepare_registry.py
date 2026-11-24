@@ -13,8 +13,8 @@ def prepare_registry(root, output, explicit=None):
             raise ValueError(f'Registry is not a file: {path}')
         return path
     merged, sources = {}, []
-    for name in ('registry_mace.json', 'registry_nep.json',
-                 'registry/registry_mace.json', 'registry/registry_nep.json'):
+    for name in ('registry_mace.json', 'registry_nep.json', 'registry_grace.json',
+                 'registry/registry_mace.json', 'registry/registry_nep.json', 'registry/registry_grace.json'):
         path = root / name
         if not path.is_file():
             continue

@@ -21,3 +21,10 @@ def test_merge_registry_locations_and_reject_conflicts(tmp_path):
 def test_missing_registry(tmp_path):
     with pytest.raises(ValueError, match='No local potential registry'):
         prepare_registry(tmp_path, tmp_path / 'out.json')
+
+
+def test_grace_registry_discovered(tmp_path):
+    (tmp_path / 'registry').mkdir()
+    (tmp_path / 'registry/registry_grace.json').write_text(json.dumps({'grace': {'backend': 'grace'}}))
+    out = prepare_registry(tmp_path, tmp_path / 'combined.json')
+    assert json.loads(out.read_text()) == {'grace': {'backend': 'grace'}}
