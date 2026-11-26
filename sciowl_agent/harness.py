@@ -3,11 +3,13 @@ import json
 import time
 import hashlib
 import fcntl
+import httpx
 from typing import TypedDict
 from langgraph.graph import StateGraph,START,END
 from .model import SYSTEM, ContextLimitError
 from .discovery import selected_schemas, schema_size, SCHEMA_BYTES
 from .store import canonical
+from .reliability import CALCULATIONS, assess_job
 
 
 class State(TypedDict):
@@ -19,14 +21,25 @@ class State(TypedDict):
     evidence: list
     status: str
     report_id: str | None
+    constraints: dict
+    last_error: dict | None
 
 
 class Harness:
-    def __init__(self,store,gateway,model,max_steps=20,max_jobs=8,max_context_chars=60000,inline_worker=False):
+    def __init__(self,store,gateway,model,max_steps=20,max_jobs=8,max_context_chars=60000,inline_worker=False,constraints=None):
         self.store,self.gateway,self.model=store,gateway,model
         self.max_steps,self.max_jobs=max_steps,max_jobs
         self.max_context_chars=max_context_chars
         self.inline_worker=inline_worker
+        self.constraints=constraints
+        if constraints is not None:
+            if set(constraints) - {"potential_id", "allowed_operations"}:
+                raise ValueError("Unknown session constraint")
+            if "potential_id" in constraints and not isinstance(constraints["potential_id"], str):
+                raise ValueError("potential_id constraint must be a string")
+            if "allowed_operations" in constraints and (not isinstance(constraints["allowed_operations"], list) or
+                    any(op not in CALCULATIONS for op in constraints["allowed_operations"])):
+                raise ValueError("Invalid allowed_operations constraint")
         graph=StateGraph(State)
         graph.add_node("model",self.think)
         graph.add_node("tools",self.act)
@@ -59,6 +72,7 @@ class Harness:
                 "schema_bytes": schema_size(schemas),
                 "message_chars": len(canonical(s["messages"]))}})
             msg=self.model.next(s["messages"],schemas)
+            s["last_error"]=None
             if msg.get("role")!="assistant":
                 raise ValueError("Expected assistant message")
             calls=msg.get("tool_calls",[])
@@ -80,6 +94,16 @@ class Harness:
             else:
                 self.finalize(s,msg)
             s["messages"].append(msg)
+        except (httpx.RequestError, httpx.HTTPStatusError) as exc:
+            status = exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else None
+            retryable = status is None or status in (408, 429) or status >= 500
+            # Never store raw provider errors/URLs: they may contain secrets.
+            s["last_error"]={"code":type(exc).__name__, "http_status":status,
+                             "retryable":retryable, "message":"Endpoint request failed. Inspect server logs and explicitly resume this session after correction."}
+            s["status"]="endpoint_error"
+            s["steps"]+=1
+            self.store.event(s["session_id"], {"endpoint_error":s["last_error"]})
+            return self.persist(s)
         except ContextLimitError as exc:
             s["status"]="context_limit"
             self.store.event(s["session_id"], {"context_limit":str(exc)})
@@ -131,7 +155,8 @@ class Harness:
             raise ValueError("Cannot finalize with pending jobs")
         # Commentary is unverified; authoritative values remain in evidence artifacts.
         facts=[{"evidence_id":eid,"data":self.store.get_json(eid)} for eid in obj["evidence_ids"]]
-        report={"session_id":s["session_id"],"model_commentary":obj["summary"],
+        assessments=[assess_job(self.store,self.store.job(j),obj["evidence_ids"]) for j in s["jobs"]]
+        report={"session_id":s["session_id"],"job_assessments":assessments,"model_commentary":obj["summary"],
                 "commentary_verified":False,"evidence":facts,
                 "notice":"Numerical evidence is tool-generated. Model commentary requires scientific review."}
         s["report_id"]=self.store.put_json(report,"report")
@@ -149,8 +174,13 @@ class Harness:
             if not request:
                 raise ValueError("New session requires a request")
             s={"session_id":sid,"messages":[{"role":"system","content":SYSTEM},{"role":"user","content":request}],
-               "steps":0,"pending":[],"jobs":[],"evidence":[],"status":"thinking","report_id":None}
+               "steps":0,"pending":[],"jobs":[],"evidence":[],"status":"thinking","report_id":None,
+               "constraints":self.constraints or {},"last_error":None}
+            if s["constraints"]:
+                s["messages"][0]["content"] += "\nEnforced session constraints: " + canonical(s["constraints"])
             self.persist(s)
+        elif self.constraints is not None and self.constraints != s.get("constraints", {}):
+            raise ValueError("Cannot change constraints of an existing session")
         elif s["status"] in ["completed","budget_exhausted","context_limit"]:
             return s
         elif any(self.store.job(j)["status"] in ["queued","running"] for j in s["jobs"]):

@@ -3,6 +3,7 @@ from pydantic import ValidationError
 from .contracts import TOOLS
 from .science import Registry,load_atoms,inspect,analyze_msd
 from .store import canonical
+from .reliability import preflight, check_constraints
 
 
 class Gateway:
@@ -63,9 +64,13 @@ class Gateway:
                 aid=self.store.put_json(data,"analysis")
                 result={"analysis_id":aid,**data}
             else:
+                session = self.store.load_session(session_id) or {}
+                check_constraints(session.get("constraints", {}), name, args)
                 ids = args["structure_ids"] if name == "evaluate_structures" else [args["structure_id"]]
                 for index, sid in enumerate(ids):
-                    checked = self.registry.checked(load_atoms(self.store, sid), args["potential_id"], verify_assets=index == 0)
+                    atoms = load_atoms(self.store, sid)
+                    preflight(atoms, name, args)
+                    checked = self.registry.checked(atoms, args["potential_id"], verify_assets=index == 0)
                     if index == 0:
                         cfg = checked
                 spec={"operation":name,"arguments":args,"potential":cfg,"schema_version":1}
