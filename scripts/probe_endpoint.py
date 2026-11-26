@@ -5,7 +5,8 @@ import json
 import os
 from pathlib import Path
 from sciowl_agent.model import EndpointModel, SYSTEM
-from sciowl_agent.contracts import tool_schemas
+from sciowl_agent.contracts import TOOLS, tool_schemas
+from sciowl_agent.discovery import selected_schemas
 
 
 def matches_call(message, expected, arguments):
@@ -13,7 +14,13 @@ def matches_call(message, expected, arguments):
     if len(calls) != 1:
         return False
     function = calls[0]["function"]
-    return function["name"] == expected and json.loads(function["arguments"]) == arguments
+    if function["name"] != expected:
+        return False
+    try:
+        model = TOOLS[expected][0]
+        return model.model_validate_json(function["arguments"]) == model.model_validate(arguments)
+    except ValueError:
+        return False
 
 
 def main():
@@ -25,6 +32,7 @@ def main():
                    help="Completion budget; 1024 often truncates Qwen-style thinking+tool calls")
     p.add_argument("--timeout", type=float, default=180)
     p.add_argument("--output", default="endpoint_probe.json")
+    p.add_argument("--all-tools", action="store_true")
     a = p.parse_args()
     if not a.base_url:
         p.error("--base-url or SCIOWL_BASE_URL is required")
@@ -40,10 +48,8 @@ def main():
     results = []
     for name, query, expected in cases:
         try:
-            msg = model.next(
-                [{"role": "system", "content": SYSTEM}, {"role": "user", "content": query}],
-                tool_schemas(),
-            )
+            messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": query}]
+            msg = model.next(messages, tool_schemas() if a.all_tools else selected_schemas(messages))
             calls = msg.get("tool_calls") or []
             if expected is None:
                 final = json.loads(msg.get("content") or "{}")

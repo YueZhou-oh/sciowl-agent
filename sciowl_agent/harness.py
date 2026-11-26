@@ -5,8 +5,8 @@ import hashlib
 import fcntl
 from typing import TypedDict
 from langgraph.graph import StateGraph,START,END
-from .contracts import tool_schemas
-from .model import SYSTEM
+from .model import SYSTEM, ContextLimitError
+from .discovery import selected_schemas, schema_size, SCHEMA_BYTES
 from .store import canonical
 
 
@@ -51,7 +51,14 @@ class Harness:
             s["status"]="context_limit"
             return self.persist(s)
         try:
-            msg=self.model.next(s["messages"],tool_schemas())
+            schemas=selected_schemas(s["messages"])
+            if schema_size(schemas)>SCHEMA_BYTES:
+                raise ContextLimitError("Selected tool schemas exceed 24000 bytes")
+            self.store.event(s["session_id"], {"model_context": {
+                "tools": [t["function"]["name"] for t in schemas],
+                "schema_bytes": schema_size(schemas),
+                "message_chars": len(canonical(s["messages"]))}})
+            msg=self.model.next(s["messages"],schemas)
             if msg.get("role")!="assistant":
                 raise ValueError("Expected assistant message")
             calls=msg.get("tool_calls",[])
@@ -61,6 +68,8 @@ class Harness:
             for i,c in enumerate(calls):
                 if c.get("type")!="function" or not isinstance(c["function"]["name"],str):
                     raise ValueError("Invalid tool-call envelope")
+                if c["function"]["name"] not in {t["function"]["name"] for t in schemas}:
+                    raise ValueError("Tool not loaded; use search_tools to discover the required operation")
                 if c.get("id") in seen:
                     raise ValueError("Duplicate tool-call ID")
                 seen.add(c.get("id"))
@@ -71,6 +80,10 @@ class Harness:
             else:
                 self.finalize(s,msg)
             s["messages"].append(msg)
+        except ContextLimitError as exc:
+            s["status"]="context_limit"
+            self.store.event(s["session_id"], {"context_limit":str(exc)})
+            return self.persist(s)
         except (ValueError,KeyError,TypeError) as exc:
             s["messages"].append({"role":"user","content":"Protocol validation failed: "+str(exc)[:500]+". Return a valid action or final JSON."})
             s["status"]="thinking"

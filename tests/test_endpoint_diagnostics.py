@@ -13,7 +13,7 @@ def test_schema_binds_arguments_to_tool():
     branches = action_schema(tool_schemas())["anyOf"]
     arguments = {b["properties"]["tool"]["enum"][0]: b["properties"]["arguments"]
                  for b in branches if "tool" in b["properties"]}
-    assert arguments["list_potentials"]["properties"] == {}
+    assert set(arguments["list_potentials"]["properties"]) == {"query", "offset", "limit"}
     assert arguments["list_potentials"]["additionalProperties"] is False
     assert arguments["inspect_structure"]["required"] == ["structure_id"]
     assert branches[-1]["required"] == ["summary", "evidence_ids"]
