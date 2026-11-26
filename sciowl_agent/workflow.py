@@ -9,7 +9,7 @@ from .worker import run_one
 
 
 def run_structure(store, model, path, request, session, *, registry=None,
-                  potential=None, max_steps=20, max_jobs=8, wall_seconds=600,
+                  potential=None, allowed_operations=None, max_steps=20, max_jobs=8, wall_seconds=600,
                   job_timeout=600, progress=True):
     sid = import_structure(store, path)
     gateway = Gateway(store, Registry(registry))
@@ -30,7 +30,12 @@ def run_structure(store, model, path, request, session, *, registry=None,
                + "Preflight observations: " + json.dumps(checks) + "\n"
                + "Retrieve calculation results with get_result before reporting.\n"
                + "User request:\n" + request)
-    harness = Harness(store, gateway, model, max_steps, max_jobs)
+    constraints = {}
+    if potential is not None:
+        constraints["potential_id"] = potential
+    if allowed_operations is not None:
+        constraints["allowed_operations"] = allowed_operations
+    harness = Harness(store, gateway, model, max_steps, max_jobs, constraints=constraints)
     deadline = time.monotonic() + wall_seconds
     state = harness.run(session, context)
     while state["status"] in ("thinking", "waiting"):

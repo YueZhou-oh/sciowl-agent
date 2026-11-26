@@ -275,3 +275,10 @@ The harness exposes a stable core and up to three relevant operations per turn.
 paginated summaries. Complete registry configuration stays in the backend.
 See [context management](docs/CONTEXT_MANAGEMENT.md) for limits, compatibility
 changes, verification, and endpoint probe comparisons.
+
+### Scientific reliability
+
+Explicit potential/operation constraints are enforced before submission. Endpoint
+failures preserve resumable checkpoints, and reports assess every job separately
+from unverified model commentary. See [scientific reliability](docs/SCIENTIFIC_RELIABILITY.md)
+for CLI examples, recovery, outcome meanings, and evaluation limits.

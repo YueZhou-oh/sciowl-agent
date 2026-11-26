@@ -65,7 +65,8 @@ class EndpointModel:
         else:
             instruction='Return ONLY JSON: {"tool": "tool_name", "arguments": {...}} or {"summary":"...","evidence_ids":[]}. Available tools: '+json.dumps(tools)
             # Non-native endpoint sees only ordinary roles, with explicit observations.
-            outgoing = [{"role": "system", "content": SYSTEM + instruction}]
+            system = "\n".join(m.get("content") or "" for m in messages if m["role"] == "system") or SYSTEM
+            outgoing = [{"role": "system", "content": system + instruction}]
             for message in messages:
                 role = message["role"]
                 if role == "system":

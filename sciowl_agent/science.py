@@ -14,6 +14,7 @@ from ase.md.verlet import VelocityVerlet
 from ase.md.langevin import Langevin
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution, Stationary
 from ase.constraints import FixCom
+from .reliability import preflight
 
 
 DEFAULT_REGISTRY = {"emt_demo": {
@@ -188,6 +189,7 @@ def execute_batch(store, job, tick, progress):
         from .nep import predict_native
         frames = [load_atoms(store, sid) for sid in args["structure_ids"]]
         for index, atoms in enumerate(frames):
+            preflight(atoms, spec["operation"], args)
             registry.checked(atoms, args["potential_id"], verify_assets=index == 0)
         if progress is not None:
             progress(f"evaluating {len(frames)} frames in one native NEP process")
@@ -196,6 +198,7 @@ def execute_batch(store, job, tick, progress):
         from .grace import predict_external
         frames = [load_atoms(store, sid) for sid in args["structure_ids"]]
         for index, atoms in enumerate(frames):
+            preflight(atoms, spec["operation"], args)
             registry.checked(atoms, args["potential_id"], verify_assets=index == 0)
         if progress is not None:
             progress(f"evaluating {len(frames)} frames in the GRACE Python environment")
@@ -206,6 +209,7 @@ def execute_batch(store, job, tick, progress):
         for index, sid in enumerate(args["structure_ids"]):
             tick()
             atoms = load_atoms(store, sid)
+            preflight(atoms, spec["operation"], args)
             registry.checked(atoms, args["potential_id"], verify_assets=index == 0)
             if native_results is not None:
                 from ase.calculators.singlepoint import SinglePointCalculator
@@ -241,7 +245,7 @@ def execute(store, job, tick, *, progress=None):
     RegistrySnapshot = Registry()
     RegistrySnapshot.entries = {a["potential_id"]:cfg}
     RegistrySnapshot.checked(atoms, a["potential_id"])
-    before = inspect(atoms)
+    before = preflight(atoms, spec["operation"], a)
     work = store.root / "work" / job["id"]
     work.mkdir(exist_ok=True)
     atoms.calc = calculator(cfg,work/"calculator")

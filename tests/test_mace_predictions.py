@@ -76,14 +76,13 @@ def test_plain_xyz_stress_and_failed_batch(tmp_path):
     ids = import_structures(store, path)
     gateway = Gateway(store)
     for policy in ("auto", "skip", "required"):
-        jid = gateway.call("evaluate_structures", {"structure_ids": ids, "potential_id": "emt_demo", "stress_policy": policy})["job_id"]
-        run_one(store)
+        out = gateway.call("evaluate_structures", {"structure_ids": ids, "potential_id": "emt_demo", "stress_policy": policy})
         if policy == "required":
-            failure = gateway.call("get_result", {"job_id": jid})
-            assert failure["ok"] and failure["status"] == "failed" and not failure["ready"]
-            assert failure["result"]["input_structure_ids"] == ids
+            assert not out["ok"] and "periodic" in out["error"]["message"]
+            assert "job_id" not in out
         else:
-            _, records = fetch_records(store, gateway, jid)
+            run_one(store)
+            _, records = fetch_records(store, gateway, out["job_id"])
             assert records[0]["stress_eV_per_A3"] is None
             assert not records[0]["stress_available"]
             assert records[0]["stress_unavailable_reason"]

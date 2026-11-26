@@ -72,6 +72,11 @@ def main():
     exp.add_argument("--format",choices=["canonical","sharegpt"],default="canonical")
     tok=sub.add_parser("tokenize");tok.add_argument("--input",required=True);tok.add_argument("--output",required=True)
     tok.add_argument("--tokenizer",required=True);tok.add_argument("--max-length",type=int,default=8192)
+    from .reliability import CALCULATIONS
+    agent.add_argument("--potential", help="Enforce this potential ID for every calculation in the session")
+    for command in (agent, run):
+        command.add_argument("--allowed-operation", action="append", choices=sorted(CALCULATIONS),
+                             help="Restrict calculation operations; repeat to allow more than one")
     args=p.parse_args()
     if args.cmd == "run":
         if any(getattr(args, key) <= 0 for key in
@@ -83,7 +88,7 @@ def main():
         model = EndpointModel(args.base_url, args.model, args.protocol,
                               timeout=args.http_timeout, max_tokens=args.max_tokens)
         out = run_structure(store, model, args.structure, args.request, session,
-                            registry=args.registry, potential=args.potential,
+                            registry=args.registry, potential=args.potential, allowed_operations=args.allowed_operation,
                             max_steps=args.max_steps, max_jobs=args.max_jobs,
                             wall_seconds=args.wall_seconds, job_timeout=args.job_timeout,
                             progress=not args.quiet)
@@ -127,7 +132,13 @@ def main():
     elif args.cmd=="agent":
         if args.max_steps<1 or args.max_jobs<1:p.error("budgets must be positive")
         model=EndpointModel(args.base_url,args.model,args.protocol,timeout=args.http_timeout,max_tokens=args.max_tokens)
-        harness=Harness(store,Gateway(store,Registry(args.registry)),model,args.max_steps,args.max_jobs)
+        constraints={}
+        if args.potential is not None:
+            constraints["potential_id"]=args.potential
+        if args.allowed_operation is not None:
+            constraints["allowed_operations"]=args.allowed_operation
+        harness=Harness(store,Gateway(store,Registry(args.registry)),model,args.max_steps,args.max_jobs,
+                        constraints=constraints or None)
         deadline=time.monotonic()+args.wall_seconds
         out=harness.run(args.session,args.request)
         while args.follow and out["status"] in ["thinking","waiting"] and time.monotonic()<deadline:
@@ -151,6 +162,8 @@ def main():
                     target.write(canonical(sample)+"\n");count+=1
         out={"tokenized_decisions":count}
     print(json.dumps(out,indent=2))
+    if args.cmd == "agent" and out["status"] in ("endpoint_error", "context_limit", "budget_exhausted"):
+        raise SystemExit(1)
 
 
 if __name__=="__main__":main()
