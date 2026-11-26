@@ -14,6 +14,7 @@ from scripts.probe_endpoint import matches_call
 
 import httpx
 from sciowl_agent.contracts import tool_schemas
+from sciowl_agent.discovery import selected_schemas, schema_size
 from sciowl_agent.model import EndpointModel, SYSTEM
 
 
@@ -23,6 +24,7 @@ def main():
     p.add_argument('--model', default=os.environ.get('SCIOWL_MODEL', 'sciowl'))
     p.add_argument('--protocol', choices=['native', 'json', 'schema'], default='native')
     p.add_argument('--state', type=Path)
+    p.add_argument('--all-tools', action='store_true', help='Compare against the full catalog instead of production discovery')
     p.add_argument('--max-tokens', type=int, help='Completion budget for this probe', default=512)
     p.add_argument('--timeout', type=float, default=180)
     p.add_argument('--output', type=Path, default=Path('sciowl_raw.json'))
@@ -43,7 +45,10 @@ def main():
         messages = json.loads(a.state.read_text())['messages'][:2]
         if [m['role'] for m in messages] != ['system', 'user']:
             p.error('State must begin with system and user messages')
-    capture = {'protocol': a.protocol, 'notice': 'No tool was executed.'}
+    schemas = tool_schemas() if a.all_tools else selected_schemas(messages)
+    capture = {'protocol': a.protocol, 'notice': 'No tool was executed.',
+               'selected_tools': [t['function']['name'] for t in schemas],
+               'schema_bytes': schema_size(schemas)}
     with httpx.Client(timeout=a.timeout, trust_env=os.environ.get('SCIOWL_TRUST_ENV') == '1') as http:
         class CaptureClient:
             @property
@@ -63,7 +68,7 @@ def main():
                 return response
         adapter = EndpointModel(a.base_url, a.model, a.protocol, client=CaptureClient(), max_tokens=a.max_tokens)
         try:
-            capture['adapter_response'] = adapter.next(messages, tool_schemas())
+            capture['adapter_response'] = adapter.next(messages, schemas)
             if not a.state:
                 capture['matches_expected_call'] = matches_call(capture['adapter_response'], 'list_potentials', {})
         except Exception as exc:

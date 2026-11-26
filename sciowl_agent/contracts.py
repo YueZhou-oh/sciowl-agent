@@ -55,13 +55,25 @@ class Analysis(Args):
     remove_com_drift: bool = False
 
 
+class ToolSearch(Args):
+    offset: int = Field(default=0, ge=0)
+    query: str = Field(min_length=1, max_length=256)
+
+
+class PotentialList(Args):
+    query: str = Field(default="", max_length=256)
+    offset: int = Field(default=0, ge=0)
+    limit: int = Field(default=10, ge=1, le=20)
+
+
 class Empty(Args):
     pass
 
 
 TOOLS = {
     "inspect_structure": (Structure, "Inspect a registered structure; returns composition, PBC, and geometry diagnostics."),
-    "list_potentials": (Empty, "List administrator-registered potentials, hardware, domain limits, and demo status."),
+    "list_potentials": (PotentialList, "Search compact registered potential summaries by ID or backend; paginate with offset. Use check_potential for exact compatibility."),
+    "search_tools": (ToolSearch, "Find operations by name or description; use offset to page through matches. Loads up to three matching tool schemas on the next decision, replacing the previous optional tools. Search again if needed."),
     "check_potential": (Potential, "Check element coverage and registry restrictions. Compatibility is not an accuracy guarantee."),
     "evaluate_energy_forces": (SinglePoint, "Queue total energy, forces, and stress for one registered structure. stress_policy: auto returns null when undefined/unavailable; required fails; skip omits calculation."),
     "evaluate_structures": (BatchSinglePoint, "Queue energy, forces and stress for an ordered list of registered structures (up to 1000), reusing one calculator. Returns a predictions JSONL artifact; one record per frame. stress_policy is auto, required, or skip."),
@@ -75,7 +87,7 @@ TOOLS = {
 }
 
 
-def tool_schemas():
+def tool_schemas(names=None):
     return [{"type":"function", "function":{"name":name,"description":description,
-             "parameters":model.model_json_schema()}} for name,(model,description) in TOOLS.items()]
+             "parameters":model.model_json_schema()}} for name,(model,description) in TOOLS.items() if names is None or name in names]
 

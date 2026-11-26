@@ -16,8 +16,26 @@ class Gateway:
                 raise ValueError("Tool not available")
             args=TOOLS[name][0].model_validate(arguments).model_dump()
             if name=="list_potentials":
-                result={"potentials":{k:{x:v for x,v in cfg.items() if x not in ["model_path","command","pseudo_dir","nep_bin","runtime_library_dir","python_executable"]}
-                                      for k,cfg in self.registry.entries.items()}}
+                query=args["query"].casefold()
+                matches=sorted(k for k,cfg in self.registry.entries.items()
+                               if query in k.casefold() or query in str(cfg.get("backend", "")).casefold())
+                page=matches[args["offset"]:args["offset"]+args["limit"]]
+                summaries={}
+                for key in page:
+                    cfg=self.registry.entries[key]
+                    summaries[key]={"backend":str(cfg.get("backend", ""))[:80],
+                                    "domain":str(cfg.get("domain", ""))[:240],
+                                    "demo_only":cfg.get("demo_only", True)}
+                next_offset=args["offset"]+len(page)
+                result={"potentials":summaries,"total":len(matches),
+                        "next_offset":next_offset if next_offset<len(matches) else None,
+                        "notice":"Compact catalog; check_potential validates exact compatibility. Compatibility is not accuracy validation."}
+            elif name=="search_tools":
+                from .discovery import search_tools
+                result={"discovery":"tools", "tools":[
+                    {"name":key,"description":TOOLS[key][1][:240]}
+                    for key in search_tools(args["query"], offset=args["offset"])],
+                    "next_offset":args["offset"]+3 if len(search_tools(args["query"], limit=4, offset=args["offset"]))>3 else None}
             elif name=="inspect_structure":
                 result=inspect(load_atoms(self.store,args["structure_id"]))
             elif name=="check_potential":

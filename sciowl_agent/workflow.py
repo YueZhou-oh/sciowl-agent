@@ -14,7 +14,7 @@ def run_structure(store, model, path, request, session, *, registry=None,
     sid = import_structure(store, path)
     gateway = Gateway(store, Registry(registry))
     checks = {"inspection": gateway.call("inspect_structure", {"structure_id": sid}, session),
-              "potentials": gateway.call("list_potentials", {}, session)}
+              "potentials": gateway.call("list_potentials", {"query": potential or ""}, session)}
     if potential:
         checks["compatibility"] = gateway.call(
             "check_potential", {"structure_id": sid, "potential_id": potential}, session)

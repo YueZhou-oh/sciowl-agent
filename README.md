@@ -267,3 +267,11 @@ it once with `python3 scripts/register_grace.py --elements Cu`, then run
 Inference uses `/dpc-zhouy/zhouy/miniconda3/envs/GRACE/bin/python`, independently
 of the agent's Python. See [GRACE setup and examples](docs/GRACE_PREDICTIONS.md)
 for verified element coverage, model registration, batch predictions, and limits.
+
+### Bounded tool context
+
+The harness exposes a stable core and up to three relevant operations per turn.
+`search_tools` loads other operations on demand; `list_potentials` returns compact,
+paginated summaries. Complete registry configuration stays in the backend.
+See [context management](docs/CONTEXT_MANAGEMENT.md) for limits, compatibility
+changes, verification, and endpoint probe comparisons.
